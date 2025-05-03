@@ -238,6 +238,14 @@ AST* ast_new_list(int kind) {
     return ast;
 }
 
+AST* ast_new_binary_expr(int op, AST* lhs, AST* rhs) {
+    AST* e = ast_new(AST_BINARY_EXPR);
+    e->lhs = lhs;
+    e->op = op;
+    e->rhs = rhs;
+    return e;
+}
+
 typedef struct Parser {
     TOKEN* tokens;
     int pos;
@@ -249,36 +257,35 @@ PARSER* parser_new(TOKEN* tokens) {
     return p;
 }
 
-TOKEN* current_token(PARSER* p) {
+TOKEN* peek_token(PARSER* p) {
     return p->tokens + p->pos;
 }
 
-void next_token(PARSER* p) {
+TOKEN* next_token(PARSER* p) {
     p->pos += 1;
+    return p->tokens + p->pos - 1;
 }
 
 int eof(PARSER* p) {
-    return current_token(p)->kind != TK_EOF;
+    return peek_token(p)->kind != TK_EOF;
 }
 
 TOKEN* expect(PARSER*p, int expected) {
-    TOKEN* t = current_token(p);
+    TOKEN* t = next_token(p);
     if (t->kind == expected) {
-        next_token(p);
-        return p->tokens + p->pos - 1;
-    } else {
-        char buf[1024];
-        sprintf(buf, "expected %d, but got %d", expected, t->kind);
-        fatal_error(buf);
+        return t;
     }
+
+    char buf[1024];
+    sprintf(buf, "expected %d, but got %d", expected, t->kind);
+    fatal_error(buf);
 }
 
 AST* parse_expr(PARSER* p);
 
 AST* parse_primitive_expr(PARSER* p) {
-    TOKEN* t = current_token(p);
+    TOKEN* t = next_token(p);
     if (t->kind == TK_L_INT) {
-        next_token(p);
         AST* e = ast_new(AST_INT_LIT_EXPR);
         char buf[1024];
         memcpy(buf, t->value, t->len);
@@ -286,7 +293,6 @@ AST* parse_primitive_expr(PARSER* p) {
         e->int_value = atoi(buf);
         return e;
     } else if (t->kind == TK_PAREN_L) {
-        next_token(p);
         AST* e = parse_expr(p);
         expect(p, TK_PAREN_R);
         return e;
@@ -298,15 +304,11 @@ AST* parse_primitive_expr(PARSER* p) {
 AST* parse_multiplicative_expr(PARSER* p) {
     AST* lhs = parse_primitive_expr(p);
     while (1) {
-        int op = current_token(p)->kind;
+        int op = peek_token(p)->kind;
         if (op == TK_STAR || op == TK_SLASH || op == TK_PERCENT) {
             next_token(p);
             AST* rhs = parse_primitive_expr(p);
-            AST* tmp = ast_new(AST_BINARY_EXPR);
-            tmp->lhs = lhs;
-            tmp->op = op;
-            tmp->rhs = rhs;
-            lhs = tmp;
+            lhs = ast_new_binary_expr(op, lhs, rhs);
         } else {
             break;
         }
@@ -317,15 +319,11 @@ AST* parse_multiplicative_expr(PARSER* p) {
 AST* parse_additive_expr(PARSER* p) {
     AST* lhs = parse_multiplicative_expr(p);
     while (1) {
-        int op = current_token(p)->kind;
+        int op = peek_token(p)->kind;
         if (op == TK_PLUS || op == TK_MINUS) {
             next_token(p);
             AST* rhs = parse_multiplicative_expr(p);
-            AST* tmp = ast_new(AST_BINARY_EXPR);
-            tmp->lhs = lhs;
-            tmp->op = op;
-            tmp->rhs = rhs;
-            lhs = tmp;
+            lhs = ast_new_binary_expr(op, lhs, rhs);
         } else {
             break;
         }
@@ -348,7 +346,7 @@ AST* parse_return_stmt(PARSER* p) {
 }
 
 AST* parse_stmt(PARSER* p) {
-    TOKEN* t = current_token(p);
+    TOKEN* t = peek_token(p);
     if (t->kind == TK_K_RETURN) {
         return parse_return_stmt(p);
     } else {
@@ -359,7 +357,7 @@ AST* parse_stmt(PARSER* p) {
 AST* parse_block_stmt(PARSER* p) {
     AST* list = ast_new_list(AST_BLOCK);
     expect(p, TK_BRACE_L);
-    while (current_token(p)->kind != TK_BRACE_R) {
+    while (peek_token(p)->kind != TK_BRACE_R) {
         AST* n = parse_stmt(p);
         list->last->next = n;
         list->last = n;
@@ -369,7 +367,7 @@ AST* parse_block_stmt(PARSER* p) {
 }
 
 AST* parse_func_decl_or_def(PARSER* p) {
-    TOKEN* t = current_token(p);
+    TOKEN* t = peek_token(p);
     if (t->kind == TK_K_INT) {
         next_token(p);
         TOKEN* name = expect(p, TK_IDENT);
