@@ -76,7 +76,6 @@ int read_all(char* buf) {
 typedef struct Token {
     int kind;
     char* value;
-    int len;
 } TOKEN;
 
 TOKEN* tokenize(char* src, int len) {
@@ -88,87 +87,59 @@ TOKEN* tokenize(char* src, int len) {
         if (c == '(') {
             pos += 1;
             tok->kind = TK_PAREN_L;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == ')') {
             pos += 1;
             tok->kind = TK_PAREN_R;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '{') {
             pos += 1;
             tok->kind = TK_BRACE_L;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '}') {
             pos += 1;
             tok->kind = TK_BRACE_R;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '[') {
             pos += 1;
             tok->kind = TK_BRACKET_L;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == ']') {
             pos += 1;
             tok->kind = TK_BRACKET_R;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == ';') {
             pos += 1;
             tok->kind = TK_SEMICOLON;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '+') {
             pos += 1;
             tok->kind = TK_PLUS;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '-') {
             pos += 1;
             tok->kind = TK_MINUS;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '*') {
             pos += 1;
             tok->kind = TK_STAR;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '/') {
             pos += 1;
             tok->kind = TK_SLASH;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '%') {
             pos += 1;
             tok->kind = TK_PERCENT;
-            tok->value = src + pos - 1;
-            tok->len = 1;
             tok += 1;
         } else if (c == '!') {
             pos += 1;
             if (src[pos] == '=') {
                 pos += 1;
                 tok->kind = TK_NE;
-                tok->value = src + pos - 2;
-                tok->len = 2;
                 tok += 1;
             } else {
                 tok->kind = TK_NOT;
-                tok->value = src + pos - 1;
-                tok->len = 1;
                 tok += 1;
             }
         } else if (c == '=') {
@@ -176,13 +147,9 @@ TOKEN* tokenize(char* src, int len) {
             if (src[pos] == '=') {
                 pos += 1;
                 tok->kind = TK_EQ;
-                tok->value = src + pos - 2;
-                tok->len = 2;
                 tok += 1;
             } else {
                 tok->kind = TK_ASSIGN;
-                tok->value = src + pos - 1;
-                tok->len = 1;
                 tok += 1;
             }
         } else if (c == '<') {
@@ -190,13 +157,9 @@ TOKEN* tokenize(char* src, int len) {
             if (src[pos] == '=') {
                 pos += 1;
                 tok->kind = TK_LE;
-                tok->value = src + pos - 2;
-                tok->len = 2;
                 tok += 1;
             } else {
                 tok->kind = TK_LT;
-                tok->value = src + pos - 1;
-                tok->len = 1;
                 tok += 1;
             }
         } else if (c == '>') {
@@ -204,13 +167,9 @@ TOKEN* tokenize(char* src, int len) {
             if (src[pos] == '=') {
                 pos += 1;
                 tok->kind = TK_GE;
-                tok->value = src + pos - 2;
-                tok->len = 2;
                 tok += 1;
             } else {
                 tok->kind = TK_GT;
-                tok->value = src + pos - 1;
-                tok->len = 1;
                 tok += 1;
             }
         } else if (isdigit(c)) {
@@ -219,43 +178,41 @@ TOKEN* tokenize(char* src, int len) {
                 pos += 1;
             }
             tok->kind = TK_L_INT;
-            tok->value = src + start;
-            tok->len = pos - start;
+            tok->value = calloc(pos - start + 1, sizeof(char));
+            memcpy(tok->value, src + start, pos - start);
             tok += 1;
         } else if (isalpha(c)) {
             int start = pos;
             while (isalnum(src[pos])) {
                 pos += 1;
             }
-            int kind;
             if (strstr(src + start, "break") == src + start) {
-                kind = TK_K_BREAK;
+                tok->kind = TK_K_BREAK;
             } else if (strstr(src + start, "char") == src + start) {
-                kind = TK_K_CHAR;
+                tok->kind = TK_K_CHAR;
             } else if (strstr(src + start, "continue") == src + start) {
-                kind = TK_K_CONTINUE;
+                tok->kind = TK_K_CONTINUE;
             } else if (strstr(src + start, "else") == src + start) {
-                kind = TK_K_ELSE;
+                tok->kind = TK_K_ELSE;
             } else if (strstr(src + start, "for") == src + start) {
-                kind = TK_K_FOR;
+                tok->kind = TK_K_FOR;
             } else if (strstr(src + start, "if") == src + start) {
-                kind = TK_K_IF;
+                tok->kind = TK_K_IF;
             } else if (strstr(src + start, "int") == src + start) {
-                kind = TK_K_INT;
+                tok->kind = TK_K_INT;
             } else if (strstr(src + start, "long") == src + start) {
-                kind = TK_K_LONG;
+                tok->kind = TK_K_LONG;
             } else if (strstr(src + start, "return") == src + start) {
-                kind = TK_K_RETURN;
+                tok->kind = TK_K_RETURN;
             } else if (strstr(src + start, "sizeof") == src + start) {
-                kind = TK_K_SIZEOF;
+                tok->kind = TK_K_SIZEOF;
             } else if (strstr(src + start, "struct") == src + start) {
-                kind = TK_K_STRUCT;
+                tok->kind = TK_K_STRUCT;
             } else {
-                kind = TK_IDENT;
+                tok->kind = TK_IDENT;
+                tok->value = calloc(pos - start + 1, sizeof(char));
+                memcpy(tok->value, src + start, pos - start);
             }
-            tok->kind = kind;
-            tok->value = src + start;
-            tok->len = pos - start;
             tok += 1;
         } else if (isspace(c)) {
             pos += 1;
@@ -398,10 +355,7 @@ AST* parse_primary_expr(PARSER* p) {
     TOKEN* t = next_token(p);
     if (t->kind == TK_L_INT) {
         AST* e = ast_new(AST_INT_LIT_EXPR);
-        char buf[1024];
-        memcpy(buf, t->value, t->len);
-        buf[t->len] = 0;
-        e->int_value = atoi(buf);
+        e->int_value = atoi(t->value);
         return e;
     } else if (t->kind == TK_PAREN_L) {
         AST* e = parse_expr(p);
@@ -412,11 +366,7 @@ AST* parse_primary_expr(PARSER* p) {
 
         int i;
         for (i = 0; i < p->n_locals; i++) {
-            char* a = calloc(1024, sizeof(char));
-            char* b = calloc(1024, sizeof(char));
-            memcpy(a, p->locals[i]->value, p->locals[i]->len);
-            memcpy(b, t->value, t->len);
-            if (strcmp(a, b) == 0) {
+            if (strcmp(p->locals[i]->value, t->value) == 0) {
                 break;
             }
         }
