@@ -1,6 +1,6 @@
 cat <<'EOF' > main.c
 int main() {
-    return 42;
+    return 5+20-4;
 }
 EOF
 
@@ -13,7 +13,7 @@ gcc -o a.out main.s
 ./a.out
 exit_code=$?
 
-expected=42
+expected=21
 
 if [[ ! $exit_code -eq $expected ]]; then
     echo "expected $expected, but $exit_code" >&2
