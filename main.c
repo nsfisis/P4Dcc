@@ -536,6 +536,37 @@ AST* parse_if_stmt(PARSER* p) {
     return stmt;
 }
 
+AST* parse_for_stmt(PARSER* p) {
+    expect(p, TK_K_FOR);
+    expect(p, TK_PAREN_L);
+    AST* init = parse_expr(p);
+    expect(p, TK_SEMICOLON);
+    AST* cond = parse_expr(p);
+    expect(p, TK_SEMICOLON);
+    AST* update = parse_expr(p);
+    expect(p, TK_PAREN_R);
+    AST* body = parse_stmt(p);
+
+    AST* stmt = ast_new(AST_FOR_STMT);
+    stmt->expr1 = init;
+    stmt->expr2 = cond;
+    stmt->expr3 = update;
+    stmt->node1 = body;
+    return stmt;
+}
+
+AST* parse_break_stmt(PARSER* p) {
+    expect(p, TK_K_BREAK);
+    expect(p, TK_SEMICOLON);
+    return ast_new(AST_BREAK_STMT);
+}
+
+AST* parse_continue_stmt(PARSER* p) {
+    expect(p, TK_K_CONTINUE);
+    expect(p, TK_SEMICOLON);
+    return ast_new(AST_CONTINUE_STMT);
+}
+
 AST* parse_var_decl(PARSER* p) {
     TOKEN* t = peek_token(p);
     if (t->kind == TK_K_INT) {
@@ -587,6 +618,12 @@ AST* parse_stmt(PARSER* p) {
         return parse_return_stmt(p);
     } else if (t->kind == TK_K_IF) {
         return parse_if_stmt(p);
+    } else if (t->kind == TK_K_FOR) {
+        return parse_for_stmt(p);
+    } else if (t->kind == TK_K_BREAK) {
+        return parse_break_stmt(p);
+    } else if (t->kind == TK_K_CONTINUE) {
+        return parse_continue_stmt(p);
     } else if (t->kind == TK_K_INT) {
         return parse_var_decl(p);
     } else if (t->kind == TK_BRACE_L) {
@@ -638,13 +675,13 @@ AST* parse(PARSER* p) {
 
 typedef struct CodeGen {
     int next_label;
-    int* ctrl_labels;
+    int* loop_labels;
 } CODEGEN;
 
 CODEGEN* codegen_new() {
     CODEGEN* g = calloc(1, sizeof(CODEGEN));
     g->next_label = 1;
-    g->ctrl_labels = calloc(1024, sizeof(int));
+    g->loop_labels = calloc(1024, sizeof(int));
     return g;
 }
 
@@ -796,8 +833,6 @@ void gen_if_stmt(CODEGEN* g, AST* ast) {
     printf("  # gen_if_stmt\n");
 
     int label = gen_new_label(g);
-    *g->ctrl_labels = label;
-    g->ctrl_labels += 1;
 
     gen_expr(g, ast->expr1, GEN_RVAL);
     printf("  pop rax\n");
@@ -808,15 +843,30 @@ void gen_if_stmt(CODEGEN* g, AST* ast) {
     printf(".Lelse%d:\n", label);
     gen_stmt(g, ast->node2);
     printf(".Lend%d:\n", label);
-
-    g->ctrl_labels -= 1;
 }
 
 void gen_for_stmt(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_FOR_STMT);
     printf("  # gen_for_stmt\n");
 
-    todo();
+    int label = gen_new_label(g);
+    *g->loop_labels = label;
+    g->loop_labels += 1;
+
+    gen_expr(g, ast->expr1, GEN_RVAL);
+    printf(".Lbegin%d:\n", label);
+    gen_expr(g, ast->expr2, GEN_RVAL);
+    printf("  pop rax\n");
+    printf("  cmp rax, 0\n");
+    printf("  je .Lend%d\n", label);
+    gen_stmt(g, ast->node1);
+    printf(".Lcontinue%d:\n", label);
+    gen_expr(g, ast->expr3, GEN_RVAL);
+    printf("  pop rax\n");
+    printf("  jmp .Lbegin%d\n", label);
+    printf(".Lend%d:\n", label);
+
+    g->loop_labels -= 1;
 }
 
 void gen_break_stmt(CODEGEN* g, AST* ast) {
