@@ -620,6 +620,7 @@ void gen_expr(CODEGEN* g, AST* ast, int gen_mode);
 void gen_stmt(CODEGEN* g, AST* ast);
 
 void gen_func_prologue(CODEGEN* g, AST* ast) {
+    printf("  # gen_func_prologue\n");
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
     // TODO 16
@@ -627,6 +628,7 @@ void gen_func_prologue(CODEGEN* g, AST* ast) {
 }
 
 void gen_func_epilogue(CODEGEN* g, AST* ast) {
+    printf("  # gen_func_epilogue\n");
     printf("  mov rsp, rbp\n");
     printf("  pop rbp\n");
     printf("  ret\n");
@@ -634,14 +636,22 @@ void gen_func_epilogue(CODEGEN* g, AST* ast) {
 
 void gen_int_lit_expr(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_INT_LIT_EXPR);
+    printf("  # gen_int_lit_expr\n");
+
     printf("  push %d\n", ast->int_value);
 }
 
 void gen_unary_expr(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_UNARY_EXPR);
+    printf("  # gen_unary_expr\n");
+
     fatal_error("gen_unary_expr: unimplemented");
 }
 
 void gen_binary_expr(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_BINARY_EXPR);
+    printf("  # gen_binary_expr\n");
+
     gen_expr(g, ast->expr1, GEN_RVAL);
     gen_expr(g, ast->expr2, GEN_RVAL);
     printf("  pop rdi\n");
@@ -683,6 +693,8 @@ void gen_binary_expr(CODEGEN* g, AST* ast) {
 
 void gen_assign_expr(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_ASSIGN_EXPR);
+    printf("  # gen_assign_expr\n");
+
     gen_expr(g, ast->expr1, GEN_LVAL);
     gen_expr(g, ast->expr2, GEN_RVAL);
     printf("  pop rdi\n");
@@ -697,6 +709,8 @@ void gen_assign_expr(CODEGEN* g, AST* ast) {
 
 void gen_lvar(CODEGEN* g, AST* ast, int gen_mode) {
     assert_ast_kind(ast, AST_LVAR);
+    printf("  # gen_lvar\n");
+
     int offset = 8 + ast->var_index * 8;
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", offset);
@@ -725,6 +739,8 @@ void gen_expr(CODEGEN* g, AST* ast, int gen_mode) {
 
 void gen_return_stmt(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_RETURN_STMT);
+    printf("  # gen_return_stmt\n");
+
     gen_expr(g, ast->expr1, GEN_RVAL);
     printf("  pop rax\n");
     gen_func_epilogue(g, ast);
@@ -772,7 +788,7 @@ void gen_func(CODEGEN* g, AST* ast) {
 
 void gen(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_PROGRAM);
-    printf(".intel_syntax noprefix\n");
+    printf(".intel_syntax noprefix\n\n");
     printf(".globl main\n");
     printf("main:\n");
     gen_func(g, ast->next);
