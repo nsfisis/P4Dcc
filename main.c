@@ -979,6 +979,7 @@ void gen_func_call(CODEGEN* g, AST* ast) {
         }
     }
     // TODO: rsp align
+    printf("  mov rax, 0\n");
     printf("  call %s\n", func_name);
     printf("  push rax\n");
 }
@@ -1141,10 +1142,9 @@ void gen(CODEGEN* g, AST* ast) {
 
     printf(".intel_syntax noprefix\n\n");
 
-    int str_index = 1;
     char** str_lit = ast->str_literals;
     while (*str_lit) {
-        printf(".Lstr__%d:\n", str_index);
+        printf(".Lstr__%d:\n", str_lit - ast->str_literals + 1);
         printf("  .string \"%s\"\n\n", *str_lit);
         str_lit += 1;
     }
