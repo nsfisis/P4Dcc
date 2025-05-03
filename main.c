@@ -238,10 +238,17 @@ AST* ast_new_list(int kind) {
     return ast;
 }
 
+AST* ast_new_unary_expr(int op, AST* operand) {
+    AST* e = ast_new(AST_UNARY_EXPR);
+    e->op = op;
+    e->lhs = operand;
+    return e;
+}
+
 AST* ast_new_binary_expr(int op, AST* lhs, AST* rhs) {
     AST* e = ast_new(AST_BINARY_EXPR);
-    e->lhs = lhs;
     e->op = op;
+    e->lhs = lhs;
     e->rhs = rhs;
     return e;
 }
@@ -283,7 +290,7 @@ TOKEN* expect(PARSER*p, int expected) {
 
 AST* parse_expr(PARSER* p);
 
-AST* parse_primitive_expr(PARSER* p) {
+AST* parse_primary_expr(PARSER* p) {
     TOKEN* t = next_token(p);
     if (t->kind == TK_L_INT) {
         AST* e = ast_new(AST_INT_LIT_EXPR);
@@ -301,13 +308,25 @@ AST* parse_primitive_expr(PARSER* p) {
     }
 }
 
+AST* parse_prefix_expr(PARSER* p) {
+    int op = peek_token(p)->kind;
+    if (op == TK_MINUS) {
+        next_token(p);
+        AST* operand = parse_prefix_expr(p);
+        AST* lhs = ast_new(AST_INT_LIT_EXPR);
+        lhs->int_value = 0;
+        return ast_new_binary_expr(op, lhs, operand);
+    }
+    return parse_primary_expr(p);
+}
+
 AST* parse_multiplicative_expr(PARSER* p) {
-    AST* lhs = parse_primitive_expr(p);
+    AST* lhs = parse_prefix_expr(p);
     while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_STAR || op == TK_SLASH || op == TK_PERCENT) {
             next_token(p);
-            AST* rhs = parse_primitive_expr(p);
+            AST* rhs = parse_prefix_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
         } else {
             break;
