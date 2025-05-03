@@ -285,6 +285,11 @@ AST* parse_primitive_expr(PARSER* p) {
         buf[t->len] = 0;
         e->int_value = atoi(buf);
         return e;
+    } else if (t->kind == TK_PAREN_L) {
+        next_token(p);
+        AST* e = parse_expr(p);
+        expect(p, TK_PAREN_R);
+        return e;
     } else {
         fatal_error("parse_expr");
     }
