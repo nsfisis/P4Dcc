@@ -553,44 +553,37 @@ void gen_binary_expr(CODEGEN* g, AST* ast) {
     printf("  pop rax\n");
     if (ast->op == TK_PLUS) {
         printf("  add rax, rdi\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_MINUS) {
         printf("  sub rax, rdi\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_STAR) {
         printf("  imul rax, rdi\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_SLASH) {
         printf("  cqo\n");
         printf("  idiv rdi\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_PERCENT) {
         printf("  cqo\n");
         printf("  idiv rdi\n");
-        printf("  push rdx\n");
+        printf("  mov rax, rdx\n");
     } else if (ast->op == TK_EQ) {
         printf("  cmp rax, rdi\n");
         printf("  sete al\n");
         printf("  movzb rax, al\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_NE) {
         printf("  cmp rax, rdi\n");
         printf("  setne al\n");
         printf("  movzb rax, al\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_LT) {
         printf("  cmp rax, rdi\n");
         printf("  setl al\n");
         printf("  movzb rax, al\n");
-        printf("  push rax\n");
     } else if (ast->op == TK_LE) {
         printf("  cmp rax, rdi\n");
         printf("  setle al\n");
         printf("  movzb rax, al\n");
-        printf("  push rax\n");
     } else {
         fatal_error("gen_binary_expr: unknown op");
     }
+    printf("  push rax\n");
 }
 
 void gen_expr(CODEGEN* g, AST* ast) {
