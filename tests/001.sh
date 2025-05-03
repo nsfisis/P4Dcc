@@ -1,21 +1,5 @@
-cat <<'EOF' > main.c
+bash ../../test_exit_code.sh 42 <<'EOF'
 int main() {
     return 42;
 }
 EOF
-
-"$p4dcc" < main.c > main.s
-if [[ $? -ne 0 ]]; then
-    cat main.s >&2
-    exit 1
-fi
-gcc -Wl,-z,noexecstack -o a.out main.s
-./a.out
-exit_code=$?
-
-expected=42
-
-if [[ ! $exit_code -eq $expected ]]; then
-    echo "expected $expected, but $exit_code" >&2
-    exit 1
-fi
