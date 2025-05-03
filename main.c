@@ -243,21 +243,25 @@ TYPE* type_new(int kind) {
     return ty;
 }
 
-#define AST_UNKNOWN      0
+#define AST_UNKNOWN       0
 
-#define AST_ASSIGN_EXPR  1
-#define AST_BINARY_EXPR  2
-#define AST_BLOCK        3
-#define AST_EXPR_STMT    4
-#define AST_FUNC_DECL    5
-#define AST_FUNC_DEF     6
-#define AST_INT_LIT_EXPR 7
-#define AST_LVAR         8
-#define AST_PROGRAM      9
-#define AST_RETURN_STMT  10
-#define AST_TYPE         11
-#define AST_UNARY_EXPR   12
-#define AST_VAR_DECL     13
+#define AST_ASSIGN_EXPR   1
+#define AST_BINARY_EXPR   2
+#define AST_BLOCK         3
+#define AST_BREAK_STMT    4
+#define AST_CONTINUE_STMT 5
+#define AST_EXPR_STMT     6
+#define AST_FOR_STMT      7
+#define AST_FUNC_DECL     8
+#define AST_FUNC_DEF      9
+#define AST_IF_STMT       10
+#define AST_INT_LIT_EXPR  11
+#define AST_LVAR          12
+#define AST_PROGRAM       13
+#define AST_RETURN_STMT   14
+#define AST_TYPE          15
+#define AST_UNARY_EXPR    16
+#define AST_VAR_DECL      17
 
 typedef struct AstNode {
     int kind;
@@ -272,6 +276,8 @@ typedef struct AstNode {
     int op;
     TYPE* var_ty;
     int var_index;
+    struct AstNode* node1;
+    struct AstNode* node2;
 } AST;
 
 AST* ast_new(int kind) {
@@ -366,6 +372,7 @@ int parse_find_lvar(PARSER* p, char* name) {
 }
 
 AST* parse_expr(PARSER* p);
+AST* parse_stmt(PARSER* p);
 
 char* parse_ident(PARSER* p) {
     return expect(p, TK_IDENT)->value;
@@ -510,6 +517,25 @@ AST* parse_return_stmt(PARSER* p) {
     return ret;
 }
 
+AST* parse_if_stmt(PARSER* p) {
+    expect(p, TK_K_IF);
+    expect(p, TK_PAREN_L);
+    AST* cond = parse_expr(p);
+    expect(p, TK_PAREN_R);
+    AST* then_body = parse_stmt(p);
+    AST* else_body = 0;
+    if (peek_token(p)->kind == TK_K_ELSE) {
+        next_token(p);
+        else_body = parse_stmt(p);
+    }
+
+    AST* stmt = ast_new(AST_IF_STMT);
+    stmt->expr1 = cond;
+    stmt->node1 = then_body;
+    stmt->node2 = else_body;
+    return stmt;
+}
+
 AST* parse_var_decl(PARSER* p) {
     TOKEN* t = peek_token(p);
     if (t->kind == TK_K_INT) {
@@ -543,17 +569,6 @@ AST* parse_expr_stmt(PARSER* p) {
     return stmt;
 }
 
-AST* parse_stmt(PARSER* p) {
-    TOKEN* t = peek_token(p);
-    if (t->kind == TK_K_RETURN) {
-        return parse_return_stmt(p);
-    } else if (t->kind == TK_K_INT) {
-        return parse_var_decl(p);
-    } else {
-        return parse_expr_stmt(p);
-    }
-}
-
 AST* parse_block_stmt(PARSER* p) {
     AST* list = ast_new_list(AST_BLOCK);
     expect(p, TK_BRACE_L);
@@ -564,6 +579,21 @@ AST* parse_block_stmt(PARSER* p) {
     }
     expect(p, TK_BRACE_R);
     return list;
+}
+
+AST* parse_stmt(PARSER* p) {
+    TOKEN* t = peek_token(p);
+    if (t->kind == TK_K_RETURN) {
+        return parse_return_stmt(p);
+    } else if (t->kind == TK_K_IF) {
+        return parse_if_stmt(p);
+    } else if (t->kind == TK_K_INT) {
+        return parse_var_decl(p);
+    } else if (t->kind == TK_BRACE_L) {
+        return parse_block_stmt(p);
+    } else {
+        return parse_expr_stmt(p);
+    }
 }
 
 void parse_enter_func(PARSER* p) {
@@ -607,10 +637,14 @@ AST* parse(PARSER* p) {
 #define GEN_RVAL 1
 
 typedef struct CodeGen {
+    int next_label;
+    int* ctrl_labels;
 } CODEGEN;
 
 CODEGEN* codegen_new() {
     CODEGEN* g = calloc(1, sizeof(CODEGEN));
+    g->next_label = 1;
+    g->ctrl_labels = calloc(1024, sizeof(int));
     return g;
 }
 
@@ -620,6 +654,12 @@ void assert_ast_kind(AST* ast, int kind) {
         sprintf(buf, "invalid ast kind: expected %d, but got %d", kind, ast->kind);
         fatal_error(buf);
     }
+}
+
+int gen_new_label(CODEGEN* g) {
+    int new_label = g->next_label;
+    g->next_label += 1;
+    return new_label;
 }
 
 void gen_expr(CODEGEN* g, AST* ast, int gen_mode);
@@ -751,6 +791,48 @@ void gen_return_stmt(CODEGEN* g, AST* ast) {
     gen_func_epilogue(g, ast);
 }
 
+void gen_if_stmt(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_IF_STMT);
+    printf("  # gen_if_stmt\n");
+
+    int label = gen_new_label(g);
+    *g->ctrl_labels = label;
+    g->ctrl_labels += 1;
+
+    gen_expr(g, ast->expr1, GEN_RVAL);
+    printf("  pop rax\n");
+    printf("  cmp rax, 0\n");
+    printf("  je .Lelse%d\n", label);
+    gen_stmt(g, ast->node1);
+    printf("  jmp .Lend%d\n", label);
+    printf(".Lelse%d:\n", label);
+    gen_stmt(g, ast->node2);
+    printf(".Lend%d:\n", label);
+
+    g->ctrl_labels -= 1;
+}
+
+void gen_for_stmt(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_FOR_STMT);
+    printf("  # gen_for_stmt\n");
+
+    todo();
+}
+
+void gen_break_stmt(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_BREAK_STMT);
+    printf("  # gen_break_stmt\n");
+
+    todo();
+}
+
+void gen_continue_stmt(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_CONTINUE_STMT);
+    printf("  # gen_continue_stmt\n");
+
+    todo();
+}
+
 void gen_expr_stmt(CODEGEN* g, AST* ast) {
     gen_expr(g, ast->expr1, GEN_RVAL);
     printf("  pop rax\n");
@@ -773,6 +855,14 @@ void gen_stmt(CODEGEN* g, AST* ast) {
         gen_block_stmt(g, ast);
     } else if (ast->kind == AST_RETURN_STMT) {
         gen_return_stmt(g, ast);
+    } else if (ast->kind == AST_IF_STMT) {
+        gen_if_stmt(g, ast);
+    } else if (ast->kind == AST_FOR_STMT) {
+        gen_for_stmt(g, ast);
+    } else if (ast->kind == AST_BREAK_STMT) {
+        gen_break_stmt(g, ast);
+    } else if (ast->kind == AST_CONTINUE_STMT) {
+        gen_continue_stmt(g, ast);
     } else if (ast->kind == AST_EXPR_STMT) {
         gen_expr_stmt(g, ast);
     } else if (ast->kind == AST_VAR_DECL) {
