@@ -218,8 +218,9 @@ typedef struct AstNode {
     TOKEN* func_name;
     struct AstNode* func_body;
     int int_value;
-    struct AstNode* lhs;
-    struct AstNode* rhs;
+    struct AstNode* expr1;
+    struct AstNode* expr2;
+    struct AstNode* expr3;
     int op;
 } AST;
 
@@ -241,15 +242,15 @@ AST* ast_new_list(int kind) {
 AST* ast_new_unary_expr(int op, AST* operand) {
     AST* e = ast_new(AST_UNARY_EXPR);
     e->op = op;
-    e->lhs = operand;
+    e->expr1 = operand;
     return e;
 }
 
 AST* ast_new_binary_expr(int op, AST* lhs, AST* rhs) {
     AST* e = ast_new(AST_BINARY_EXPR);
     e->op = op;
-    e->lhs = lhs;
-    e->rhs = rhs;
+    e->expr1 = lhs;
+    e->expr2 = rhs;
     return e;
 }
 
@@ -360,7 +361,7 @@ AST* parse_return_stmt(PARSER* p) {
     expect(p, TK_SEMICOLON);
 
     AST* ret = ast_new(AST_RETURN_STMT);
-    ret->lhs = expr;
+    ret->expr1 = expr;
     return ret;
 }
 
@@ -444,8 +445,8 @@ void gen_unary_expr(CODEGEN* g, AST* ast) {
 }
 
 void gen_binary_expr(CODEGEN* g, AST* ast) {
-    gen_expr(g, ast->lhs);
-    gen_expr(g, ast->rhs);
+    gen_expr(g, ast->expr1);
+    gen_expr(g, ast->expr2);
     printf("  pop rdi\n");
     printf("  pop rax\n");
     if (ast->op == TK_PLUS) {
@@ -484,7 +485,7 @@ void gen_expr(CODEGEN* g, AST* ast) {
 
 void gen_return_stmt(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_RETURN_STMT);
-    gen_expr(g, ast->lhs);
+    gen_expr(g, ast->expr1);
     printf("  pop rax\n");
     printf("  ret\n");
 }
