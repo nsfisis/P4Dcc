@@ -841,7 +841,9 @@ void gen_if_stmt(CODEGEN* g, AST* ast) {
     gen_stmt(g, ast->node1);
     printf("  jmp .Lend%d\n", label);
     printf(".Lelse%d:\n", label);
-    gen_stmt(g, ast->node2);
+    if (ast->node2) {
+        gen_stmt(g, ast->node2);
+    }
     printf(".Lend%d:\n", label);
 }
 
