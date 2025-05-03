@@ -217,12 +217,26 @@ typedef struct AstNode {
     struct AstNode* last;
     TOKEN* func_name;
     struct AstNode* func_body;
-    struct AstNode* expr1;
     int int_value;
     struct AstNode* lhs;
     struct AstNode* rhs;
     int op;
 } AST;
+
+AST* ast_new(int kind) {
+    AST* ast = calloc(1, sizeof(AST));
+    ast->kind = kind;
+    return ast;
+}
+
+AST* ast_new_list(int kind) {
+    if (kind != AST_PROGRAM && kind != AST_BLOCK) {
+        fatal_error("ast_new_list: non-list ast");
+    }
+    AST* ast = ast_new(kind);
+    ast->last = ast;
+    return ast;
+}
 
 typedef struct Parser {
     TOKEN* tokens;
@@ -265,8 +279,7 @@ AST* parse_primitive_expr(PARSER* p) {
     TOKEN* t = current_token(p);
     if (t->kind == TK_L_INT) {
         next_token(p);
-        AST* e = calloc(1, sizeof(AST));
-        e->kind = AST_INT_LIT_EXPR;
+        AST* e = ast_new(AST_INT_LIT_EXPR);
         char buf[1024];
         memcpy(buf, t->value, t->len);
         buf[t->len] = 0;
@@ -284,8 +297,7 @@ AST* parse_multiplicative_expr(PARSER* p) {
         if (op == TK_STAR || op == TK_SLASH || op == TK_PERCENT) {
             next_token(p);
             AST* rhs = parse_primitive_expr(p);
-            AST* tmp = calloc(1, sizeof(AST));
-            tmp->kind = AST_BINARY_EXPR;
+            AST* tmp = ast_new(AST_BINARY_EXPR);
             tmp->lhs = lhs;
             tmp->op = op;
             tmp->rhs = rhs;
@@ -304,8 +316,7 @@ AST* parse_additive_expr(PARSER* p) {
         if (op == TK_PLUS || op == TK_MINUS) {
             next_token(p);
             AST* rhs = parse_multiplicative_expr(p);
-            AST* tmp = calloc(1, sizeof(AST));
-            tmp->kind = AST_BINARY_EXPR;
+            AST* tmp = ast_new(AST_BINARY_EXPR);
             tmp->lhs = lhs;
             tmp->op = op;
             tmp->rhs = rhs;
@@ -326,9 +337,8 @@ AST* parse_return_stmt(PARSER* p) {
     AST* expr = parse_expr(p);
     expect(p, TK_SEMICOLON);
 
-    AST* ret = calloc(1, sizeof(AST));
-    ret->kind = AST_RETURN_STMT;
-    ret->expr1 = expr;
+    AST* ret = ast_new(AST_RETURN_STMT);
+    ret->lhs = expr;
     return ret;
 }
 
@@ -342,9 +352,7 @@ AST* parse_stmt(PARSER* p) {
 }
 
 AST* parse_block_stmt(PARSER* p) {
-    AST* list = calloc(1, sizeof(AST));
-    list->kind = AST_BLOCK;
-    list->last = list;
+    AST* list = ast_new_list(AST_BLOCK);
     expect(p, TK_BRACE_L);
     while (current_token(p)->kind != TK_BRACE_R) {
         AST* n = parse_stmt(p);
@@ -363,8 +371,7 @@ AST* parse_func_decl_or_def(PARSER* p) {
         expect(p, TK_PAREN_L);
         expect(p, TK_PAREN_R);
         AST* body = parse_block_stmt(p);
-        AST* func = calloc(1, sizeof(AST));
-        func->kind = AST_FUNC_DEF;
+        AST* func = ast_new(AST_FUNC_DEF);
         func->func_name = name;
         func->func_body = body;
         return func;
@@ -378,9 +385,7 @@ AST* parse_toplevel(PARSER* p) {
 }
 
 AST* parse(PARSER* p) {
-    AST* list = calloc(1, sizeof(AST));
-    list->kind = AST_PROGRAM;
-    list->last = list;
+    AST* list = ast_new_list(AST_PROGRAM);
     while (eof(p)) {
         AST* n = parse_toplevel(p);
         list->last->next = n;
@@ -457,7 +462,7 @@ void gen_expr(CODEGEN* g, AST* ast) {
 
 void gen_return_stmt(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_RETURN_STMT);
-    gen_expr(g, ast->expr1);
+    gen_expr(g, ast->lhs);
     printf("  pop rax\n");
     printf("  ret\n");
 }
