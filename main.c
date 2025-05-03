@@ -852,8 +852,8 @@ void gen_for_stmt(CODEGEN* g, AST* ast) {
     printf("  # gen_for_stmt\n");
 
     int label = gen_new_label(g);
-    *g->loop_labels = label;
     g->loop_labels += 1;
+    *g->loop_labels = label;
 
     gen_expr(g, ast->expr1, GEN_RVAL);
     printf(".Lbegin%d:\n", label);
@@ -875,14 +875,16 @@ void gen_break_stmt(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_BREAK_STMT);
     printf("  # gen_break_stmt\n");
 
-    todo();
+    int label = *g->loop_labels;
+    printf("  jmp .Lend%d\n", label);
 }
 
 void gen_continue_stmt(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_CONTINUE_STMT);
     printf("  # gen_continue_stmt\n");
 
-    todo();
+    int label = *g->loop_labels;
+    printf("  jmp .Lcontinue%d\n", label);
 }
 
 void gen_expr_stmt(CODEGEN* g, AST* ast) {
