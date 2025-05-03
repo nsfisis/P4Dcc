@@ -177,6 +177,23 @@ TOKEN* tokenize(char* src, int len) {
                 tok->kind = TK_GT;
                 tok += 1;
             }
+        } else if (c == '"') {
+            pos += 1;
+            int start = pos;
+            while (1) {
+                int ch = src[pos];
+                if (ch == '\\') {
+                    pos += 1;
+                } else if (ch == '"') {
+                    break;
+                }
+                pos += 1;
+            }
+            tok->kind = TK_L_STR;
+            tok->value = calloc(pos - start + 1, sizeof(char));
+            memcpy(tok->value, src + start, pos - start);
+            pos += 1;
+            tok += 1;
         } else if (isdigit(c)) {
             int start = pos;
             while (isdigit(src[pos])) {
@@ -268,9 +285,10 @@ TYPE* type_new(int kind) {
 #define AST_PARAM_LIST    16
 #define AST_PROGRAM       17
 #define AST_RETURN_STMT   18
-#define AST_TYPE          19
-#define AST_UNARY_EXPR    20
-#define AST_VAR_DECL      21
+#define AST_STR_LIT_EXPR  19
+#define AST_TYPE          20
+#define AST_UNARY_EXPR    21
+#define AST_VAR_DECL      22
 
 typedef struct AstNode {
     int kind;
@@ -288,6 +306,7 @@ typedef struct AstNode {
     int var_index;
     struct AstNode* node1;
     struct AstNode* node2;
+    char** str_literals;
 } AST;
 
 AST* ast_new(int kind) {
@@ -339,11 +358,14 @@ typedef struct Parser {
     int pos;
     LVAR* locals;
     int n_locals;
+    char** str_literals;
+    int n_str_literals;
 } PARSER;
 
 PARSER* parser_new(TOKEN* tokens) {
     PARSER* p = calloc(1, sizeof(PARSER));
     p->tokens = tokens;
+    p->str_literals = calloc(1024, sizeof(char*));
     return p;
 }
 
@@ -388,11 +410,22 @@ char* parse_ident(PARSER* p) {
     return expect(p, TK_IDENT)->value;
 }
 
+int parse_register_str_lit(PARSER* p, char* s) {
+    p->str_literals[p->n_str_literals] = s;
+    p->n_str_literals += 1;
+    return p->n_str_literals;
+}
+
 AST* parse_primary_expr(PARSER* p) {
     TOKEN* t = next_token(p);
     if (t->kind == TK_L_INT) {
         AST* e = ast_new(AST_INT_LIT_EXPR);
         e->int_value = atoi(t->value);
+        return e;
+    } else if (t->kind == TK_L_STR) {
+        int str_lit_index = parse_register_str_lit(p, t->value);
+        AST* e = ast_new(AST_STR_LIT_EXPR);
+        e->int_value = str_lit_index;
         return e;
     } else if (t->kind == TK_PAREN_L) {
         AST* e = parse_expr(p);
@@ -729,11 +762,15 @@ AST* parse_func_decl_or_def(PARSER* p) {
     TOKEN* t = peek_token(p);
     if (t->kind == TK_K_INT) {
         next_token(p);
-        parse_enter_func(p);
         TOKEN* name = expect(p, TK_IDENT);
         expect(p, TK_PAREN_L);
         AST* params = parse_param_list(p);
         expect(p, TK_PAREN_R);
+        if (peek_token(p)->kind == TK_SEMICOLON) {
+            next_token(p);
+            return ast_new(AST_FUNC_DECL);
+        }
+        parse_enter_func(p);
         parse_register_params(p, params);
         AST* body = parse_block_stmt(p);
         AST* func = ast_new(AST_FUNC_DEF);
@@ -757,6 +794,7 @@ AST* parse(PARSER* p) {
         list->last->next = n;
         list->last = n;
     }
+    list->str_literals = p->str_literals;
     return list;
 }
 
@@ -834,6 +872,14 @@ void gen_int_lit_expr(CODEGEN* g, AST* ast) {
     printf("  # gen_int_lit_expr\n");
 
     printf("  push %d\n", ast->int_value);
+}
+
+void gen_str_lit_expr(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_STR_LIT_EXPR);
+    printf("  # gen_str_lit_expr\n");
+
+    printf("  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->int_value);
+    printf("  push rax\n");
 }
 
 void gen_unary_expr(CODEGEN* g, AST* ast) {
@@ -954,6 +1000,8 @@ void gen_lvar(CODEGEN* g, AST* ast, int gen_mode) {
 void gen_expr(CODEGEN* g, AST* ast, int gen_mode) {
     if (ast->kind == AST_INT_LIT_EXPR) {
         gen_int_lit_expr(g, ast);
+    } else if (ast->kind == AST_STR_LIT_EXPR) {
+        gen_str_lit_expr(g, ast);
     } else if (ast->kind == AST_UNARY_EXPR) {
         gen_unary_expr(g, ast);
     } else if (ast->kind == AST_BINARY_EXPR) {
@@ -1090,12 +1138,24 @@ void gen_func(CODEGEN* g, AST* ast) {
 
 void gen(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_PROGRAM);
+
     printf(".intel_syntax noprefix\n\n");
+
+    int str_index = 1;
+    char** str_lit = ast->str_literals;
+    while (*str_lit) {
+        printf(".Lstr__%d:\n", str_index);
+        printf("  .string \"%s\"\n\n", *str_lit);
+        str_lit += 1;
+    }
+
     printf(".globl main\n\n");
 
     AST* func = ast->next;
     while (func) {
-        gen_func(g, func);
+        if (func->kind == AST_FUNC_DEF) {
+            gen_func(g, func);
+        }
         func = func->next;
     }
 }

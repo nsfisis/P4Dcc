@@ -16,7 +16,7 @@ fi
 
 expected="$1"
 
-if [[ "$output" -ne "$expected" ]]; then
+if [[ "$output" != "$expected" ]]; then
     echo "invalid output: expected '$expected', but got '$output'" >&2
     exit 1
 fi
