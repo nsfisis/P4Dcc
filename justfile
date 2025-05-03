@@ -3,7 +3,7 @@ CFLAGS := "-Wno-builtin-declaration-mismatch"
 all: build
 
 build:
-    gcc -o p4dcc main.c {{CFLAGS}}
+    gcc -g -O0 -o p4dcc main.c {{CFLAGS}}
 
 test TESTCASE="all": build
     #!/usr/bin/env bash
