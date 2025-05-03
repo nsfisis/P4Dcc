@@ -22,14 +22,11 @@ int fatal_error(char* msg) {
     return 0;
 }
 
-int source_len;
-char source[1024*1024];
-
-int read_all() {
+int read_all(char* buf) {
     int c;
     int n = 0;
     while ((c = getchar()) != -1) {
-        source[n] = c;
+        buf[n] = c;
         n += 1;
     }
     return n;
@@ -59,72 +56,69 @@ int read_all() {
 #define TK_BRACKET_R  21
 #define TK_SEMICOLON  22
 
-struct Token {
+typedef struct Token {
     int kind;
     char* value;
     int len;
-};
-typedef struct Token* TOKEN;
+} TOKEN;
 
-struct Token tokens[1024];
-int token_len;
-
-int tokenize(char* src, int len) {
+TOKEN* tokenize(char* src, int len) {
+    TOKEN* tokens = calloc(1024*1024, sizeof(TOKEN));
+    TOKEN* tok = tokens;
     int pos = 0;
-    int token_len = 0;
     while (pos < len) {
         char c = src[pos];
         if (c == '(') {
             pos += 1;
-            tokens[token_len].kind = TK_PAREN_L;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_PAREN_L;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (c == ')') {
             pos += 1;
-            tokens[token_len].kind = TK_PAREN_R;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_PAREN_R;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (c == '{') {
             pos += 1;
-            tokens[token_len].kind = TK_BRACE_L;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_BRACE_L;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (c == '}') {
             pos += 1;
-            tokens[token_len].kind = TK_BRACE_R;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_BRACE_R;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (c == '[') {
             pos += 1;
-            tokens[token_len].kind = TK_BRACKET_L;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_BRACKET_L;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (c == ']') {
             pos += 1;
-            tokens[token_len].kind = TK_BRACKET_R;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_BRACKET_R;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (c == ';') {
             pos += 1;
-            tokens[token_len].kind = TK_SEMICOLON;
-            tokens[token_len].value = src + pos - 1;
-            tokens[token_len].len = 1;
-            token_len += 1;
+            tok->kind = TK_SEMICOLON;
+            tok->value = src + pos - 1;
+            tok->len = 1;
+            tok += 1;
         } else if (isdigit(c)) {
             int start = pos;
             while (isdigit(src[pos])) {
                 pos += 1;
             }
-            tokens[token_len].kind = TK_L_INT;
-            tokens[token_len].value = src + start;
-            tokens[token_len].len = pos - start;
-            token_len += 1;
+            tok->kind = TK_L_INT;
+            tok->value = src + start;
+            tok->len = pos - start;
+            tok += 1;
         } else if (isalpha(c)) {
             int start = pos;
             while (isalnum(src[pos])) {
@@ -156,20 +150,18 @@ int tokenize(char* src, int len) {
             } else {
                 kind = TK_IDENT;
             }
-            tokens[token_len].kind = kind;
-            tokens[token_len].value = src + start;
-            tokens[token_len].len = pos - start;
-            token_len += 1;
+            tok->kind = kind;
+            tok->value = src + start;
+            tok->len = pos - start;
+            tok += 1;
         } else if (isspace(c)) {
             pos += 1;
         } else {
             fatal_error("unknown token");
         }
     }
-    return token_len;
+    return tokens;
 }
-
-int token_pos;
 
 #define AST_UNKNOWN      0
 #define AST_PROGRAM      1
@@ -180,30 +172,44 @@ int token_pos;
 #define AST_RETURN_STMT  6
 #define AST_INT_LIT_EXPR 7
 
-struct AstNode {
+typedef struct AstNode {
     int kind;
     struct AstNode* next;
     struct AstNode* last;
-    TOKEN func_name;
+    TOKEN* func_name;
     struct AstNode* func_body;
     struct AstNode* expr1;
     int int_value;
-};
-typedef struct AstNode* AST;
+} AST;
 
-int eof() {
-    return token_pos < token_len;
+typedef struct Parser {
+    TOKEN* tokens;
+    int pos;
+} PARSER;
+
+PARSER* parser_new(TOKEN* tokens) {
+    PARSER* p = calloc(1, sizeof(PARSER));
+    p->tokens = tokens;
+    return p;
 }
 
-TOKEN next_tok() {
-    return tokens + token_pos;
+TOKEN* current_token(PARSER* p) {
+    return p->tokens + p->pos;
 }
 
-TOKEN expect(int expected) {
-    TOKEN t = next_tok();
+void next(PARSER* p) {
+    p->pos += 1;
+}
+
+int eof(PARSER* p) {
+    return current_token(p)->kind != TK_EOF;
+}
+
+TOKEN* expect(PARSER*p, int expected) {
+    TOKEN* t = current_token(p);
     if (t->kind == expected) {
-        token_pos += 1;
-        return tokens + token_pos - 1;
+        next(p);
+        return p->tokens + p->pos - 1;
     } else {
         char buf[1024];
         sprintf(buf, "expected %d, but got %d", expected, t->kind);
@@ -211,13 +217,13 @@ TOKEN expect(int expected) {
     }
 }
 
-AST parse_expr();
+AST* parse_expr(PARSER* p);
 
-AST parse_primitive_expr() {
-    TOKEN t = next_tok();
+AST* parse_primitive_expr(PARSER* p) {
+    TOKEN* t = current_token(p);
     if (t->kind == TK_L_INT) {
-        token_pos += 1;
-        AST e = calloc(1, sizeof(struct AstNode));
+        next(p);
+        AST* e = calloc(1, sizeof(AST));
         e->kind = AST_INT_LIT_EXPR;
         char buf[1024];
         memcpy(buf, t->value, t->len);
@@ -229,53 +235,53 @@ AST parse_primitive_expr() {
     }
 }
 
-AST parse_expr() {
-    return parse_primitive_expr();
+AST* parse_expr(PARSER* p) {
+    return parse_primitive_expr(p);
 }
 
-AST parse_return_stmt() {
-    expect(TK_K_RETURN);
-    AST expr = parse_expr();
-    expect(TK_SEMICOLON);
+AST* parse_return_stmt(PARSER* p) {
+    expect(p, TK_K_RETURN);
+    AST* expr = parse_expr(p);
+    expect(p, TK_SEMICOLON);
 
-    AST ret = calloc(1, sizeof(struct AstNode));
+    AST* ret = calloc(1, sizeof(AST));
     ret->kind = AST_RETURN_STMT;
     ret->expr1 = expr;
     return ret;
 }
 
-AST parse_stmt() {
-    TOKEN t = next_tok();
+AST* parse_stmt(PARSER* p) {
+    TOKEN* t = current_token(p);
     if (t->kind == TK_K_RETURN) {
-        return parse_return_stmt();
+        return parse_return_stmt(p);
     } else {
         fatal_error("parse_stmt");
     }
 }
 
-AST parse_block_stmt() {
-    AST list = calloc(1, sizeof(struct AstNode));
+AST* parse_block_stmt(PARSER* p) {
+    AST* list = calloc(1, sizeof(AST));
     list->kind = AST_BLOCK;
     list->last = list;
-    expect(TK_BRACE_L);
-    while (next_tok()->kind != TK_BRACE_R) {
-        AST n = parse_stmt();
+    expect(p, TK_BRACE_L);
+    while (current_token(p)->kind != TK_BRACE_R) {
+        AST* n = parse_stmt(p);
         list->last->next = n;
         list->last = n;
     }
-    expect(TK_BRACE_R);
+    expect(p, TK_BRACE_R);
     return list;
 }
 
-AST parse_func_decl_or_def() {
-    TOKEN t = next_tok();
+AST* parse_func_decl_or_def(PARSER* p) {
+    TOKEN* t = current_token(p);
     if (t->kind == TK_K_INT) {
-        token_pos += 1;
-        TOKEN name = expect(TK_IDENT);
-        expect(TK_PAREN_L);
-        expect(TK_PAREN_R);
-        AST body = parse_block_stmt();
-        AST func = calloc(1, sizeof(struct AstNode));
+        next(p);
+        TOKEN* name = expect(p, TK_IDENT);
+        expect(p, TK_PAREN_L);
+        expect(p, TK_PAREN_R);
+        AST* body = parse_block_stmt(p);
+        AST* func = calloc(1, sizeof(AST));
         func->kind = AST_FUNC_DEF;
         func->func_name = name;
         func->func_body = body;
@@ -285,23 +291,31 @@ AST parse_func_decl_or_def() {
     }
 }
 
-AST parse_toplevel() {
-    return parse_func_decl_or_def();
+AST* parse_toplevel(PARSER* p) {
+    return parse_func_decl_or_def(p);
 }
 
-AST parse() {
-    AST list = calloc(1, sizeof(struct AstNode));
+AST* parse(PARSER* p) {
+    AST* list = calloc(1, sizeof(AST));
     list->kind = AST_PROGRAM;
     list->last = list;
-    while (eof()) {
-        AST n = parse_toplevel();
+    while (eof(p)) {
+        AST* n = parse_toplevel(p);
         list->last->next = n;
         list->last = n;
     }
     return list;
 }
 
-void assert_ast_kind(AST ast, int kind) {
+typedef struct CodeGenerator {
+} CODE_GENERATOR;
+
+CODE_GENERATOR* codegen_new() {
+    CODE_GENERATOR* g = calloc(1, sizeof(CODE_GENERATOR));
+    return g;
+}
+
+void assert_ast_kind(AST* ast, int kind) {
     if (ast->kind != kind) {
         char buf[1024];
         sprintf(buf, "invalid ast kind: expected %d, but got %d", kind, ast->kind);
@@ -309,51 +323,53 @@ void assert_ast_kind(AST ast, int kind) {
     }
 }
 
-void gen_int_lit_expr(AST ast) {
+void gen_int_lit_expr(CODE_GENERATOR* g, AST* ast) {
     assert_ast_kind(ast, AST_INT_LIT_EXPR);
     printf("  mov rax, %d\n", ast->int_value);
 }
 
-void gen_primitive_expr(AST ast) {
-    gen_int_lit_expr(ast);
+void gen_primitive_expr(CODE_GENERATOR* g, AST* ast) {
+    gen_int_lit_expr(g, ast);
 }
 
-void gen_expr(AST ast) {
-    gen_primitive_expr(ast);
+void gen_expr(CODE_GENERATOR* g, AST* ast) {
+    gen_primitive_expr(g, ast);
 }
 
-void gen_return_stmt(AST ast) {
+void gen_return_stmt(CODE_GENERATOR* g, AST* ast) {
     assert_ast_kind(ast, AST_RETURN_STMT);
-    gen_expr(ast->expr1);
+    gen_expr(g, ast->expr1);
     printf("  ret\n");
 }
 
-void gen_block_stmt(AST ast) {
+void gen_block_stmt(CODE_GENERATOR* g, AST* ast) {
     assert_ast_kind(ast, AST_BLOCK);
-    gen_return_stmt(ast->next);
+    gen_return_stmt(g, ast->next);
 }
 
-void gen_stmt(AST ast) {
-    gen_block_stmt(ast);
+void gen_stmt(CODE_GENERATOR* g, AST* ast) {
+    gen_block_stmt(g, ast);
 }
 
-void gen_func(AST ast) {
+void gen_func(CODE_GENERATOR* g, AST* ast) {
     assert_ast_kind(ast, AST_FUNC_DEF);
-    gen_stmt(ast->func_body);
+    gen_stmt(g, ast->func_body);
     printf("  ret\n");
 }
 
-void gen(AST ast) {
+void gen(CODE_GENERATOR* g, AST* ast) {
     assert_ast_kind(ast, AST_PROGRAM);
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");
     printf("main:\n");
-    gen_func(ast->next);
+    gen_func(g, ast->next);
 }
 
 int main() {
-    source_len = read_all();
-    token_len = tokenize(source, source_len);
+    char source[1024*1024];
+    memset(source, 0, sizeof(source));
+    int source_len = read_all(source);
+    TOKEN* tokens = tokenize(source, source_len);
 
     // for (int i = 0; tokens[i].kind != TK_EOF; i++) {
     //     for (int j = 0; j < tokens[i].len; j++) {
@@ -362,8 +378,11 @@ int main() {
     //     printf("\n");
     // }
 
-    AST ast = parse();
-    gen(ast);
+    PARSER* parser = parser_new(tokens);
+    AST* ast = parse(parser);
+
+    CODE_GENERATOR* code_generator = codegen_new();
+    gen(code_generator, ast);
 
     return 0;
 }
