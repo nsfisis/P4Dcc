@@ -9,7 +9,7 @@ if [[ $? -ne 0 ]]; then
     cat main.s >&2
     exit 1
 fi
-gcc -o a.out main.s
+gcc -Wl,-z,noexecstack -o a.out main.s
 ./a.out
 exit_code=$?
 
