@@ -264,18 +264,20 @@ TYPE* type_new(int kind) {
 #define AST_IF_STMT       12
 #define AST_INT_LIT_EXPR  13
 #define AST_LVAR          14
-#define AST_PARAM_LIST    15
-#define AST_PROGRAM       16
-#define AST_RETURN_STMT   17
-#define AST_TYPE          18
-#define AST_UNARY_EXPR    19
-#define AST_VAR_DECL      20
+#define AST_PARAM         15
+#define AST_PARAM_LIST    16
+#define AST_PROGRAM       17
+#define AST_RETURN_STMT   18
+#define AST_TYPE          19
+#define AST_UNARY_EXPR    20
+#define AST_VAR_DECL      21
 
 typedef struct AstNode {
     int kind;
     struct AstNode* next;
     struct AstNode* last;
     char* name;
+    struct AstNode* func_params;
     struct AstNode* func_body;
     int int_value;
     struct AstNode* expr1;
@@ -685,6 +687,44 @@ void parse_enter_func(PARSER* p) {
     p->n_locals = 0;
 }
 
+void parse_register_params(PARSER* p, AST* params) {
+    AST* param = params->next;
+    while (param) {
+        p->locals[p->n_locals].name = param->name;
+        p->n_locals += 1;
+        param = param->next;
+    }
+}
+
+AST* parse_param(PARSER* p) {
+    TOKEN* t = peek_token(p);
+    if (t->kind == TK_K_INT) {
+        next_token(p);
+        char* name = parse_ident(p);
+        AST* param = ast_new(AST_PARAM);
+        param->var_ty = type_new(TY_INT);
+        param->name = name;
+    } else {
+        fatal_error("parse_param: expect type");
+    }
+}
+
+AST* parse_param_list(PARSER* p) {
+    AST* list = ast_new_list(AST_PARAM_LIST);
+    while (peek_token(p)->kind != TK_PAREN_R) {
+        AST* param = parse_param(p);
+        list->last->next = param;
+        list->last = param;
+        int tk = peek_token(p)->kind;
+        if (tk == TK_COMMA) {
+            next_token(p);
+        } else {
+            break;
+        }
+    }
+    return list;
+}
+
 AST* parse_func_decl_or_def(PARSER* p) {
     TOKEN* t = peek_token(p);
     if (t->kind == TK_K_INT) {
@@ -692,10 +732,13 @@ AST* parse_func_decl_or_def(PARSER* p) {
         parse_enter_func(p);
         TOKEN* name = expect(p, TK_IDENT);
         expect(p, TK_PAREN_L);
+        AST* params = parse_param_list(p);
         expect(p, TK_PAREN_R);
+        parse_register_params(p, params);
         AST* body = parse_block_stmt(p);
         AST* func = ast_new(AST_FUNC_DEF);
         func->name = name->value;
+        func->func_params = params;
         func->func_body = body;
         return func;
     } else {
@@ -751,13 +794,36 @@ void gen_stmt(CODEGEN* g, AST* ast);
 
 void gen_func_prologue(CODEGEN* g, AST* ast) {
     printf("  # gen_func_prologue\n");
+
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
+    int param_index = 0;
+    AST* param = ast->func_params->next;
+    while (param) {
+        if (param_index == 0) {
+            printf("  push rdi\n");
+        } else if (param_index == 1) {
+            printf("  push rsi\n");
+        } else if (param_index == 2) {
+            printf("  push rdx\n");
+        } else if (param_index == 3) {
+            printf("  push rcx\n");
+        } else if (param_index == 4) {
+            printf("  push r8\n");
+        } else if (param_index == 5) {
+            printf("  push r9\n");
+        } else {
+            fatal_error("gen_func_prologue: too many params");
+        }
+        param_index += 1;
+        param = param->next;
+    }
     printf("  sub rsp, %d\n", 8 * LVAR_MAX);
 }
 
 void gen_func_epilogue(CODEGEN* g, AST* ast) {
     printf("  # gen_func_epilogue\n");
+
     printf("  mov rsp, rbp\n");
     printf("  pop rbp\n");
     printf("  ret\n");
