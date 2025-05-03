@@ -312,10 +312,16 @@ AST* ast_new_assign_expr(int op, AST* lhs, AST* rhs) {
     return e;
 }
 
+#define LVAR_MAX 32
+
+typedef struct LVar {
+    char* name;
+} LVAR;
+
 typedef struct Parser {
     TOKEN* tokens;
     int pos;
-    char** locals;
+    LVAR* locals;
     int n_locals;
 } PARSER;
 
@@ -352,7 +358,7 @@ TOKEN* expect(PARSER* p, int expected) {
 int parse_find_lvar(PARSER* p, char* name) {
     int i;
     for (i = 0; i < p->n_locals; i++) {
-        if (strcmp(p->locals[i], name) == 0) {
+        if (strcmp(p->locals[i].name, name) == 0) {
             return i;
         }
     }
@@ -520,7 +526,7 @@ AST* parse_var_decl(PARSER* p) {
             sprintf(buf, "parse_var_decl: %s redeclared", name);
             fatal_error(buf);
         }
-        p->locals[p->n_locals] = name;
+        p->locals[p->n_locals].name = name;
         p->n_locals += 1;
 
         return decl;
@@ -561,7 +567,7 @@ AST* parse_block_stmt(PARSER* p) {
 }
 
 void parse_enter_func(PARSER* p) {
-    p->locals = calloc(32, sizeof(TOKEN*));
+    p->locals = calloc(LVAR_MAX, sizeof(LVAR));
     p->n_locals = 0;
 }
 
@@ -623,8 +629,7 @@ void gen_func_prologue(CODEGEN* g, AST* ast) {
     printf("  # gen_func_prologue\n");
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
-    // TODO 16
-    printf("  sub rsp, 16\n");
+    printf("  sub rsp, %d\n", 8 * LVAR_MAX);
 }
 
 void gen_func_epilogue(CODEGEN* g, AST* ast) {
