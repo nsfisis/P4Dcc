@@ -42,36 +42,37 @@ int read_all(char* buf) {
 #define TK_BRACE_R    3
 #define TK_BRACKET_L  4
 #define TK_BRACKET_R  5
-#define TK_EQ         6
-#define TK_GE         7
-#define TK_GT         8
-#define TK_IDENT      9
-#define TK_K_BREAK    10
-#define TK_K_CHAR     11
-#define TK_K_CONTINUE 12
-#define TK_K_ELSE     13
-#define TK_K_FOR      14
-#define TK_K_IF       15
-#define TK_K_INT      16
-#define TK_K_LONG     17
-#define TK_K_RETURN   18
-#define TK_K_SIZEOF   19
-#define TK_K_STRUCT   20
-#define TK_K_VOID     21
-#define TK_LE         22
-#define TK_LT         23
-#define TK_L_INT      24
-#define TK_L_STR      25
-#define TK_MINUS      26
-#define TK_NE         27
-#define TK_NOT        28
-#define TK_PAREN_L    29
-#define TK_PAREN_R    30
-#define TK_PERCENT    31
-#define TK_PLUS       32
-#define TK_SEMICOLON  33
-#define TK_SLASH      34
-#define TK_STAR       35
+#define TK_COMMA      6
+#define TK_EQ         7
+#define TK_GE         8
+#define TK_GT         9
+#define TK_IDENT      10
+#define TK_K_BREAK    11
+#define TK_K_CHAR     12
+#define TK_K_CONTINUE 13
+#define TK_K_ELSE     14
+#define TK_K_FOR      15
+#define TK_K_IF       16
+#define TK_K_INT      17
+#define TK_K_LONG     18
+#define TK_K_RETURN   19
+#define TK_K_SIZEOF   20
+#define TK_K_STRUCT   21
+#define TK_K_VOID     22
+#define TK_LE         23
+#define TK_LT         24
+#define TK_L_INT      25
+#define TK_L_STR      26
+#define TK_MINUS      27
+#define TK_NE         28
+#define TK_NOT        29
+#define TK_PAREN_L    30
+#define TK_PAREN_R    31
+#define TK_PERCENT    32
+#define TK_PLUS       33
+#define TK_SEMICOLON  34
+#define TK_SLASH      35
+#define TK_STAR       36
 
 typedef struct Token {
     int kind;
@@ -107,6 +108,10 @@ TOKEN* tokenize(char* src, int len) {
         } else if (c == ']') {
             pos += 1;
             tok->kind = TK_BRACKET_R;
+            tok += 1;
+        } else if (c == ',') {
+            pos += 1;
+            tok->kind = TK_COMMA;
             tok += 1;
         } else if (c == ';') {
             pos += 1;
@@ -245,23 +250,26 @@ TYPE* type_new(int kind) {
 
 #define AST_UNKNOWN       0
 
-#define AST_ASSIGN_EXPR   1
-#define AST_BINARY_EXPR   2
-#define AST_BLOCK         3
-#define AST_BREAK_STMT    4
-#define AST_CONTINUE_STMT 5
-#define AST_EXPR_STMT     6
-#define AST_FOR_STMT      7
-#define AST_FUNC_DECL     8
-#define AST_FUNC_DEF      9
-#define AST_IF_STMT       10
-#define AST_INT_LIT_EXPR  11
-#define AST_LVAR          12
-#define AST_PROGRAM       13
-#define AST_RETURN_STMT   14
-#define AST_TYPE          15
-#define AST_UNARY_EXPR    16
-#define AST_VAR_DECL      17
+#define AST_ARG_LIST      1
+#define AST_ASSIGN_EXPR   2
+#define AST_BINARY_EXPR   3
+#define AST_BLOCK         4
+#define AST_BREAK_STMT    5
+#define AST_CONTINUE_STMT 6
+#define AST_EXPR_STMT     7
+#define AST_FOR_STMT      8
+#define AST_FUNC_CALL     9
+#define AST_FUNC_DECL     10
+#define AST_FUNC_DEF      11
+#define AST_IF_STMT       12
+#define AST_INT_LIT_EXPR  13
+#define AST_LVAR          14
+#define AST_PARAM_LIST    15
+#define AST_PROGRAM       16
+#define AST_RETURN_STMT   17
+#define AST_TYPE          18
+#define AST_UNARY_EXPR    19
+#define AST_VAR_DECL      20
 
 typedef struct AstNode {
     int kind;
@@ -287,7 +295,7 @@ AST* ast_new(int kind) {
 }
 
 AST* ast_new_list(int kind) {
-    if (kind != AST_PROGRAM && kind != AST_BLOCK) {
+    if (kind != AST_PROGRAM && kind != AST_BLOCK && kind != AST_ARG_LIST && kind != AST_PARAM_LIST) {
         fatal_error("ast_new_list: non-list ast");
     }
     AST* ast = ast_new(kind);
@@ -390,6 +398,13 @@ AST* parse_primary_expr(PARSER* p) {
         return e;
     } else if (t->kind == TK_IDENT) {
         char* name = t->value;
+
+        if (peek_token(p)->kind == TK_PAREN_L) {
+            AST* e = ast_new(AST_FUNC_CALL);
+            e->name = name;
+            return e;
+        }
+
         int var_index = parse_find_lvar(p, name);
         if (var_index == -1) {
             char buf[1024];
@@ -408,6 +423,38 @@ AST* parse_primary_expr(PARSER* p) {
     }
 }
 
+AST* parse_arg_list(PARSER* p) {
+    AST* list = ast_new_list(AST_ARG_LIST);
+    while (peek_token(p)->kind != TK_PAREN_R) {
+        AST* arg = parse_expr(p);
+        list->last->next = arg;
+        list->last = arg;
+        int tk = peek_token(p)->kind;
+        if (tk == TK_COMMA) {
+            next_token(p);
+        } else {
+            break;
+        }
+    }
+    return list;
+}
+
+AST* parse_postfix_expr(PARSER* p) {
+    AST* ret = parse_primary_expr(p);
+    while (1) {
+        int tk = peek_token(p)->kind;
+        if (tk == TK_PAREN_L) {
+            next_token(p);
+            AST* args = parse_arg_list(p);
+            expect(p, TK_PAREN_R);
+            ret->expr1 = args;
+        } else {
+            break;
+        }
+    }
+    return ret;
+}
+
 AST* parse_prefix_expr(PARSER* p) {
     int op = peek_token(p)->kind;
     if (op == TK_MINUS) {
@@ -417,7 +464,7 @@ AST* parse_prefix_expr(PARSER* p) {
         lhs->int_value = 0;
         return ast_new_binary_expr(op, lhs, operand);
     }
-    return parse_primary_expr(p);
+    return parse_postfix_expr(p);
 }
 
 AST* parse_multiplicative_expr(PARSER* p) {
@@ -789,6 +836,41 @@ void gen_assign_expr(CODEGEN* g, AST* ast) {
     }
 }
 
+void gen_func_call(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_FUNC_CALL);
+    printf("  # gen_func_call\n");
+
+    char* func_name = ast->name;
+    AST* args = ast->expr1;
+    AST* arg = args->next;
+    int n_args = 0;
+    while (arg) {
+        n_args += 1;
+        gen_expr(g, arg, GEN_RVAL);
+        arg = arg->next;
+    }
+    for (int i = n_args - 1; i >= 0; i--) {
+        if (i == 0) {
+            printf("  pop rdi\n");
+        } else if (i == 1) {
+            printf("  pop rsi\n");
+        } else if (i == 2) {
+            printf("  pop rdx\n");
+        } else if (i == 3) {
+            printf("  pop rcx\n");
+        } else if (i == 4) {
+            printf("  pop r8\n");
+        } else if (i == 5) {
+            printf("  pop r9\n");
+        } else {
+            fatal_error("gen_func_call: too many args");
+        }
+    }
+    // TODO: rsp align
+    printf("  call %s\n", func_name);
+    printf("  push rax\n");
+}
+
 void gen_lvar(CODEGEN* g, AST* ast, int gen_mode) {
     assert_ast_kind(ast, AST_LVAR);
     printf("  # gen_lvar\n");
@@ -812,6 +894,8 @@ void gen_expr(CODEGEN* g, AST* ast, int gen_mode) {
         gen_binary_expr(g, ast);
     } else if (ast->kind == AST_ASSIGN_EXPR) {
         gen_assign_expr(g, ast);
+    } else if (ast->kind == AST_FUNC_CALL) {
+        gen_func_call(g, ast);
     } else if (ast->kind == AST_LVAR) {
         gen_lvar(g, ast, gen_mode);
     } else {
@@ -930,17 +1014,24 @@ void gen_stmt(CODEGEN* g, AST* ast) {
 
 void gen_func(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_FUNC_DEF);
+    printf("%s:\n", ast->name);
+
     gen_func_prologue(g, ast);
     gen_stmt(g, ast->func_body);
     gen_func_epilogue(g, ast);
+    printf("\n");
 }
 
 void gen(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_PROGRAM);
     printf(".intel_syntax noprefix\n\n");
-    printf(".globl main\n");
-    printf("main:\n");
-    gen_func(g, ast->next);
+    printf(".globl main\n\n");
+
+    AST* func = ast->next;
+    while (func) {
+        gen_func(g, func);
+        func = func->next;
+    }
 }
 
 int main() {
