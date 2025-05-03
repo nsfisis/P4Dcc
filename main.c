@@ -306,7 +306,7 @@ typedef struct AstNode {
     int kind;
     struct AstNode* next;
     struct AstNode* last;
-    TOKEN* func_name;
+    TOKEN* name;
     struct AstNode* func_body;
     int int_value;
     struct AstNode* expr1;
@@ -314,7 +314,6 @@ typedef struct AstNode {
     struct AstNode* expr3;
     int op;
     TYPE* var_ty;
-    TOKEN* var_name;
     int var_index;
 } AST;
 
@@ -427,7 +426,7 @@ AST* parse_primary_expr(PARSER* p) {
             fatal_error(buf);
         }
 
-        e->var_name = t;
+        e->name = t;
         e->var_index = i;
         return e;
     } else {
@@ -555,7 +554,7 @@ AST* parse_var_decl(PARSER* p) {
         AST* decl = ast_new(AST_VAR_DECL);
         expect(p, TK_SEMICOLON);
         decl->var_ty = ty;
-        decl->var_name = name;
+        decl->name = name;
 
         for (int i = 0; i < p->n_locals; i++) {
             if (p->locals[i] == name) {
@@ -619,7 +618,7 @@ AST* parse_func_decl_or_def(PARSER* p) {
         expect(p, TK_PAREN_R);
         AST* body = parse_block_stmt(p);
         AST* func = ast_new(AST_FUNC_DEF);
-        func->func_name = name;
+        func->name = name;
         func->func_body = body;
         return func;
     } else {
