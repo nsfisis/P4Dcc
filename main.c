@@ -263,7 +263,7 @@ typedef struct AstNode {
     int kind;
     struct AstNode* next;
     struct AstNode* last;
-    TOKEN* name;
+    char* name;
     struct AstNode* func_body;
     int int_value;
     struct AstNode* expr1;
@@ -315,7 +315,7 @@ AST* ast_new_assign_expr(int op, AST* lhs, AST* rhs) {
 typedef struct Parser {
     TOKEN* tokens;
     int pos;
-    TOKEN** locals;
+    char** locals;
     int n_locals;
 } PARSER;
 
@@ -349,7 +349,21 @@ TOKEN* expect(PARSER* p, int expected) {
     fatal_error(buf);
 }
 
+int parse_find_lvar(PARSER* p, char* name) {
+    int i;
+    for (i = 0; i < p->n_locals; i++) {
+        if (strcmp(p->locals[i], name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 AST* parse_expr(PARSER* p);
+
+char* parse_ident(PARSER* p) {
+    return expect(p, TK_IDENT)->value;
+}
 
 AST* parse_primary_expr(PARSER* p) {
     TOKEN* t = next_token(p);
@@ -362,22 +376,17 @@ AST* parse_primary_expr(PARSER* p) {
         expect(p, TK_PAREN_R);
         return e;
     } else if (t->kind == TK_IDENT) {
-        AST* e = ast_new(AST_LVAR);
-
-        int i;
-        for (i = 0; i < p->n_locals; i++) {
-            if (strcmp(p->locals[i]->value, t->value) == 0) {
-                break;
-            }
-        }
-        if (i == p->n_locals) {
+        char* name = t->value;
+        int var_index = parse_find_lvar(p, name);
+        if (var_index == -1) {
             char buf[1024];
-            sprintf(buf, "undefined variable: %s", t->value);
+            sprintf(buf, "undefined variable: %s", name);
             fatal_error(buf);
         }
 
-        e->name = t;
-        e->var_index = i;
+        AST* e = ast_new(AST_LVAR);
+        e->name = name;
+        e->var_index = var_index;
         return e;
     } else {
         char buf[1024];
@@ -500,18 +509,16 @@ AST* parse_var_decl(PARSER* p) {
     if (t->kind == TK_K_INT) {
         next_token(p);
         TYPE* ty = type_new(TK_K_INT);
-        TOKEN* name = expect(p, TK_IDENT);
+        char* name = parse_ident(p);
         AST* decl = ast_new(AST_VAR_DECL);
         expect(p, TK_SEMICOLON);
         decl->var_ty = ty;
         decl->name = name;
 
-        for (int i = 0; i < p->n_locals; i++) {
-            if (p->locals[i] == name) {
-                char buf[1024];
-                sprintf(buf, "parse_var_decl: %s redeclared", name);
-                fatal_error(buf);
-            }
+        if (parse_find_lvar(p, name) != -1) {
+            char buf[1024];
+            sprintf(buf, "parse_var_decl: %s redeclared", name);
+            fatal_error(buf);
         }
         p->locals[p->n_locals] = name;
         p->n_locals += 1;
@@ -568,7 +575,7 @@ AST* parse_func_decl_or_def(PARSER* p) {
         expect(p, TK_PAREN_R);
         AST* body = parse_block_stmt(p);
         AST* func = ast_new(AST_FUNC_DEF);
-        func->name = name;
+        func->name = name->value;
         func->func_body = body;
         return func;
     } else {
