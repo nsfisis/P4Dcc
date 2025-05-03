@@ -34,33 +34,41 @@ int read_all(char* buf) {
 
 #define TK_EOF        0
 
-#define TK_BRACE_L    1
-#define TK_BRACE_R    2
-#define TK_BRACKET_L  3
-#define TK_BRACKET_R  4
-#define TK_IDENT      5
-#define TK_K_BREAK    6
-#define TK_K_CHAR     7
-#define TK_K_CONTINUE 8
-#define TK_K_ELSE     9
-#define TK_K_FOR      10
-#define TK_K_IF       11
-#define TK_K_INT      12
-#define TK_K_LONG     13
-#define TK_K_RETURN   14
-#define TK_K_SIZEOF   15
-#define TK_K_STRUCT   16
-#define TK_K_VOID     17
-#define TK_L_INT      18
-#define TK_L_STR      19
-#define TK_MINUS      20
-#define TK_PAREN_L    21
-#define TK_PAREN_R    22
-#define TK_PERCENT    23
-#define TK_PLUS       24
-#define TK_SEMICOLON  25
-#define TK_SLASH      26
-#define TK_STAR       27
+#define TK_ASSIGN     1
+#define TK_BRACE_L    2
+#define TK_BRACE_R    3
+#define TK_BRACKET_L  4
+#define TK_BRACKET_R  5
+#define TK_EQ         6
+#define TK_GE         7
+#define TK_GT         8
+#define TK_IDENT      9
+#define TK_K_BREAK    10
+#define TK_K_CHAR     11
+#define TK_K_CONTINUE 12
+#define TK_K_ELSE     13
+#define TK_K_FOR      14
+#define TK_K_IF       15
+#define TK_K_INT      16
+#define TK_K_LONG     17
+#define TK_K_RETURN   18
+#define TK_K_SIZEOF   19
+#define TK_K_STRUCT   20
+#define TK_K_VOID     21
+#define TK_LE         22
+#define TK_LT         23
+#define TK_L_INT      24
+#define TK_L_STR      25
+#define TK_MINUS      26
+#define TK_NE         27
+#define TK_NOT        28
+#define TK_PAREN_L    29
+#define TK_PAREN_R    30
+#define TK_PERCENT    31
+#define TK_PLUS       32
+#define TK_SEMICOLON  33
+#define TK_SLASH      34
+#define TK_STAR       35
 
 typedef struct Token {
     int kind;
@@ -146,6 +154,62 @@ TOKEN* tokenize(char* src, int len) {
             tok->value = src + pos - 1;
             tok->len = 1;
             tok += 1;
+        } else if (c == '!') {
+            pos += 1;
+            if (src[pos] == '=') {
+                pos += 1;
+                tok->kind = TK_NE;
+                tok->value = src + pos - 2;
+                tok->len = 2;
+                tok += 1;
+            } else {
+                tok->kind = TK_NOT;
+                tok->value = src + pos - 1;
+                tok->len = 1;
+                tok += 1;
+            }
+        } else if (c == '=') {
+            pos += 1;
+            if (src[pos] == '=') {
+                pos += 1;
+                tok->kind = TK_EQ;
+                tok->value = src + pos - 2;
+                tok->len = 2;
+                tok += 1;
+            } else {
+                tok->kind = TK_ASSIGN;
+                tok->value = src + pos - 1;
+                tok->len = 1;
+                tok += 1;
+            }
+        } else if (c == '<') {
+            pos += 1;
+            if (src[pos] == '=') {
+                pos += 1;
+                tok->kind = TK_LE;
+                tok->value = src + pos - 2;
+                tok->len = 2;
+                tok += 1;
+            } else {
+                tok->kind = TK_LT;
+                tok->value = src + pos - 1;
+                tok->len = 1;
+                tok += 1;
+            }
+        } else if (c == '>') {
+            pos += 1;
+            if (src[pos] == '=') {
+                pos += 1;
+                tok->kind = TK_GE;
+                tok->value = src + pos - 2;
+                tok->len = 2;
+                tok += 1;
+            } else {
+                tok->kind = TK_GT;
+                tok->value = src + pos - 1;
+                tok->len = 1;
+                tok += 1;
+            }
         } else if (isdigit(c)) {
             int start = pos;
             while (isdigit(src[pos])) {
@@ -351,8 +415,46 @@ AST* parse_additive_expr(PARSER* p) {
     return lhs;
 }
 
+AST* parse_comparative_expr(PARSER* p) {
+    AST* lhs = parse_additive_expr(p);
+    while (1) {
+        int op = peek_token(p)->kind;
+        if (op == TK_LT || op == TK_LE) {
+            next_token(p);
+            AST* rhs = parse_additive_expr(p);
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+        } else if (op == TK_GT) {
+            next_token(p);
+            AST* rhs = parse_additive_expr(p);
+            lhs = ast_new_binary_expr(TK_LT, rhs, lhs);
+        } else if (op == TK_GE) {
+            next_token(p);
+            AST* rhs = parse_additive_expr(p);
+            lhs = ast_new_binary_expr(TK_GE, rhs, lhs);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+AST* parse_equality_expr(PARSER* p) {
+    AST* lhs = parse_comparative_expr(p);
+    while (1) {
+        int op = peek_token(p)->kind;
+        if (op == TK_EQ || op == TK_NE) {
+            next_token(p);
+            AST* rhs = parse_comparative_expr(p);
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
 AST* parse_expr(PARSER* p) {
-    return parse_additive_expr(p);
+    return parse_equality_expr(p);
 }
 
 AST* parse_return_stmt(PARSER* p) {
@@ -466,6 +568,26 @@ void gen_binary_expr(CODEGEN* g, AST* ast) {
         printf("  cqo\n");
         printf("  idiv rdi\n");
         printf("  push rdx\n");
+    } else if (ast->op == TK_EQ) {
+        printf("  cmp rax, rdi\n");
+        printf("  sete al\n");
+        printf("  movzb rax, al\n");
+        printf("  push rax\n");
+    } else if (ast->op == TK_NE) {
+        printf("  cmp rax, rdi\n");
+        printf("  setne al\n");
+        printf("  movzb rax, al\n");
+        printf("  push rax\n");
+    } else if (ast->op == TK_LT) {
+        printf("  cmp rax, rdi\n");
+        printf("  setl al\n");
+        printf("  movzb rax, al\n");
+        printf("  push rax\n");
+    } else if (ast->op == TK_LE) {
+        printf("  cmp rax, rdi\n");
+        printf("  setle al\n");
+        printf("  movzb rax, al\n");
+        printf("  push rax\n");
     } else {
         fatal_error("gen_binary_expr: unknown op");
     }
