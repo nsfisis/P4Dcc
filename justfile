@@ -2,16 +2,18 @@ CFLAGS := "-Wno-builtin-declaration-mismatch"
 
 all: build
 
-build:
-    gcc -g -O0 -o p4dcc main.c {{CFLAGS}}
+build N="1":
+    #!/usr/bin/env bash
+    if [[ {{N}} = 1 ]]; then
+        gcc -g -O0 -o p4dcc main.c {{CFLAGS}}
+    else
+        ./p4dcc < main.c > main{{N}}.s
+        gcc -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
+    fi
 
-build2: build
-    ./p4dcc < main.c > main.s
-    gcc -Wl,-z,noexecstack -o p4dcc2 main.s
-
-build3: build2
-    ./p4dcc2 < main.c > main.s
-    gcc -Wl,-z,noexecstack -o p4cc3 main.s
+build N: build
+    ./p4dcc < main.c > main{{N}}.s
+    gcc -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
 
 test TESTCASE="all" $BIN="p4dcc": build
     #!/usr/bin/env bash
