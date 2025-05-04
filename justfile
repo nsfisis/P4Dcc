@@ -20,6 +20,9 @@ test TESTCASE="all" $BIN="p4dcc": build
     else
         bash tests/run.sh {{TESTCASE}}
     fi
+    if [[ $BIN = p4dcc ]]; then
+        just build2
+    fi
 
 clean:
     rm p4dcc*
