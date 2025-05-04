@@ -215,6 +215,21 @@ struct Token* tokenize(char* src, int len) {
                 tok->kind = TK_GT;
                 tok = tok + 1;
             }
+        } else if (c == '\'') {
+            pos = pos + 1;
+            int ch = src[pos];
+            if (ch == '\\') {
+                pos = pos + 1;
+                ch = src[pos];
+                if (ch == 'n') {
+                    ch = '\n';
+                }
+            }
+            pos = pos + 2;
+            tok->kind = TK_L_INT;
+            tok->value = calloc(4, sizeof(char));
+            sprintf(tok->value, "%d", ch);
+            tok = tok + 1;
         } else if (c == '"') {
             pos = pos + 1;
             int start = pos;
