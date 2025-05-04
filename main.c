@@ -409,25 +409,6 @@ int type_alignof(struct Type* ty) {
     }
 }
 
-int type_ptr_shift_width(struct Type* ty) {
-    if (ty->kind != TY_PTR) {
-        fatal_error("type_ptr_shift_width: type is not a pointer");
-    }
-
-    int sz = type_sizeof(ty->to);
-    if (sz == 1) {
-        return 0;
-    } else if (sz == 2) {
-        return 1;
-    } else if (sz == 4) {
-        return 2;
-    } else if (sz == 8) {
-        return 3;
-    } else {
-        todo();
-    }
-}
-
 #define AST_UNKNOWN            0
 
 #define AST_ARG_LIST           1
@@ -1526,12 +1507,12 @@ void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     if (ast->op == TK_PLUS) {
         if (ast->expr1->ty->kind == TY_PTR) {
             if (ast->expr2->kind != AST_OFFSETOF) {
-                printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr1->ty));
+                printf("  imul rdi, %d\n", type_sizeof(ast->expr1->ty->to));
             }
             printf("  add rax, rdi\n");
         } else if (ast->expr2->ty->kind == TY_PTR) {
             if (ast->expr1->kind != AST_OFFSETOF) {
-                printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr2->ty));
+                printf("  imul rax, %d\n", type_sizeof(ast->expr2->ty->to));
             }
             printf("  add rax, rdi\n");
         } else {
@@ -1539,10 +1520,9 @@ void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
         }
     } else if (ast->op == TK_MINUS) {
         if (ast->expr2->ty->kind == TY_PTR) {
-            printf("  sub rax, rdi\n");
-            printf("  shr rax, %d\n", type_ptr_shift_width(ast->expr2->ty));
+            fatal_error("todo");
         } else if (ast->expr1->ty->kind == TY_PTR) {
-            printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr2->ty));
+            printf("  imul rdi, %d\n", type_sizeof(ast->expr1->ty->to));
             printf("  sub rax, rdi\n");
         } else {
             printf("  sub rax, rdi\n");
@@ -1795,11 +1775,10 @@ void gen(struct CodeGen* g, struct AstNode* ast) {
 
     printf(".intel_syntax noprefix\n\n");
 
-    char** str_lit = ast->str_literals;
-    for (0; *str_lit; 0) {
-        printf(".Lstr__%d:\n", str_lit - ast->str_literals + 1);
-        printf("  .string \"%s\"\n\n", *str_lit);
-        str_lit = str_lit + 1;
+    int idx = 0;
+    for (idx = 0; ast->str_literals[idx]; idx = idx + 1) {
+        printf(".Lstr__%d:\n", idx + 1);
+        printf("  .string \"%s\"\n\n", ast->str_literals[idx]);
     }
 
     printf(".globl main\n\n");
