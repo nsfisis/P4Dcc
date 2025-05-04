@@ -291,22 +291,24 @@ int type_is_valid_for_var(TYPE* ty) {
 #define AST_BLOCK         4
 #define AST_BREAK_STMT    5
 #define AST_CONTINUE_STMT 6
-#define AST_EXPR_STMT     7
-#define AST_FOR_STMT      8
-#define AST_FUNC_CALL     9
-#define AST_FUNC_DECL     10
-#define AST_FUNC_DEF      11
-#define AST_IF_STMT       12
-#define AST_INT_LIT_EXPR  13
-#define AST_LVAR          14
-#define AST_PARAM         15
-#define AST_PARAM_LIST    16
-#define AST_PROGRAM       17
-#define AST_RETURN_STMT   18
-#define AST_STR_LIT_EXPR  19
-#define AST_TYPE          20
-#define AST_UNARY_EXPR    21
-#define AST_VAR_DECL      22
+#define AST_DEREF_EXPR    7
+#define AST_EXPR_STMT     8
+#define AST_FOR_STMT      9
+#define AST_FUNC_CALL     10
+#define AST_FUNC_DECL     11
+#define AST_FUNC_DEF      12
+#define AST_IF_STMT       13
+#define AST_INT_LIT_EXPR  14
+#define AST_LVAR          15
+#define AST_PARAM         16
+#define AST_PARAM_LIST    17
+#define AST_PROGRAM       18
+#define AST_REF_EXPR      19
+#define AST_RETURN_STMT   20
+#define AST_STR_LIT_EXPR  21
+#define AST_TYPE          22
+#define AST_UNARY_EXPR    23
+#define AST_VAR_DECL      24
 
 typedef struct AstNode {
     int kind;
@@ -516,10 +518,18 @@ AST* parse_prefix_expr(PARSER* p) {
         AST* lhs = ast_new(AST_INT_LIT_EXPR);
         lhs->int_value = 0;
         return ast_new_binary_expr(op, lhs, operand);
-    } else if (op == TK_AND || op == TK_STAR) {
+    } else if (op == TK_AND) {
         next_token(p);
         AST* operand = parse_prefix_expr(p);
-        return ast_new_unary_expr(op, operand);
+        AST* e = ast_new(AST_REF_EXPR);
+        e->expr1 = operand;
+        return e;
+    } else if (op == TK_STAR) {
+        next_token(p);
+        AST* operand = parse_prefix_expr(p);
+        AST* e = ast_new(AST_DEREF_EXPR);
+        e->expr1 = operand;
+        return e;
     }
     return parse_postfix_expr(p);
 }
@@ -927,22 +937,30 @@ void gen_str_lit_expr(CODEGEN* g, AST* ast) {
     printf("  push rax\n");
 }
 
-void gen_unary_expr(CODEGEN* g, AST* ast, int gen_mode) {
+void gen_unary_expr(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_UNARY_EXPR);
     printf("  # gen_unary_expr\n");
 
-    if (ast->op == TK_AND) {
-        gen_expr(g, ast->expr1, GEN_LVAL);
-    } else if (ast->op == TK_STAR) {
-        if (gen_mode == GEN_LVAL) {
-            gen_expr(g, ast->expr1, GEN_RVAL);
-        } else {
-            gen_expr(g, ast->expr1, GEN_RVAL);
-            printf("  pop rax\n");
-            printf("  push [rax]\n");
-        }
+    todo();
+}
+
+void gen_ref_expr(CODEGEN* g, AST* ast, int gen_mode) {
+    assert_ast_kind(ast, AST_REF_EXPR);
+    printf("  # gen_ref_expr\n");
+
+    gen_expr(g, ast->expr1, GEN_LVAL);
+}
+
+void gen_deref_expr(CODEGEN* g, AST* ast, int gen_mode) {
+    assert_ast_kind(ast, AST_DEREF_EXPR);
+    printf("  # gen_deref_expr\n");
+
+    if (gen_mode == GEN_LVAL) {
+        gen_expr(g, ast->expr1, GEN_RVAL);
     } else {
-        todo();
+        gen_expr(g, ast->expr1, GEN_RVAL);
+        printf("  pop rax\n");
+        printf("  push [rax]\n");
     }
 }
 
@@ -1061,7 +1079,11 @@ void gen_expr(CODEGEN* g, AST* ast, int gen_mode) {
     } else if (ast->kind == AST_STR_LIT_EXPR) {
         gen_str_lit_expr(g, ast);
     } else if (ast->kind == AST_UNARY_EXPR) {
-        gen_unary_expr(g, ast, gen_mode);
+        gen_unary_expr(g, ast);
+    } else if (ast->kind == AST_REF_EXPR) {
+        gen_ref_expr(g, ast, gen_mode);
+    } else if (ast->kind == AST_DEREF_EXPR) {
+        gen_deref_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_BINARY_EXPR) {
         gen_binary_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_ASSIGN_EXPR) {
