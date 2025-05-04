@@ -638,7 +638,7 @@ struct Token* expect(struct Parser* p, int expected) {
 
 int find_lvar(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_locals; i++) {
+    for (i = 0; i < p->n_locals; i += 1) {
         if (strcmp(p->locals[i].name, name) == 0) {
             return i;
         }
@@ -648,7 +648,7 @@ int find_lvar(struct Parser* p, char* name) {
 
 int find_func(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_funcs; i++) {
+    for (i = 0; i < p->n_funcs; i += 1) {
         if (strcmp(p->funcs[i].name, name) == 0) {
             return i;
         }
@@ -811,7 +811,7 @@ struct Type* parse_type(struct Parser* p) {
         ty->kind = TY_STRUCT;
         char* name = parse_ident(p);
         int struct_index;
-        for (struct_index = 0; struct_index < p->n_structs; struct_index++) {
+        for (struct_index = 0; struct_index < p->n_structs; struct_index += 1) {
             if (strcmp(name, p->structs[struct_index].name) == 0) {
                 break;
             }
@@ -1137,7 +1137,7 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     expect(p, TK_K_STRUCT);
     char* name = parse_ident(p);
     int struct_index;
-    for (struct_index = 0; struct_index < p->n_structs; struct_index++) {
+    for (struct_index = 0; struct_index < p->n_structs; struct_index += 1) {
         if (strcmp(name, p->structs[struct_index].name) == 0) {
             break;
         }
@@ -1466,7 +1466,7 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
         gen_expr(g, arg, GEN_RVAL);
         arg = arg->next;
     }
-    for (int i = n_args - 1; i >= 0; i--) {
+    for (int i = n_args - 1; i >= 0; i -= 1) {
         if (i == 0) {
             printf("  pop rdi\n");
         } else if (i == 1) {
@@ -1677,7 +1677,7 @@ int main() {
     int source_len = read_all(source);
     struct Token* tokens = tokenize(source, source_len);
 
-    // for (int i = 0; tokens[i].kind != TK_EOF; i++) {
+    // for (int i = 0; tokens[i].kind != TK_EOF; i += 1) {
     //     if (tokens[i].value) {
     //         printf("%s\n", tokens[i].value);
     //     } else {
