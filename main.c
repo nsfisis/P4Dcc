@@ -1195,59 +1195,6 @@ struct AstNode* parse_stmt(struct Parser* p) {
     }
 }
 
-struct AstNode* parse_struct_member(struct Parser* p) {
-    struct Type* ty = parse_type(p);
-    char* name = parse_ident(p);
-    expect(p, TK_SEMICOLON);
-    struct AstNode* member = ast_new(AST_STRUCT_MEMBER);
-    member->name = name;
-    member->ty = ty;
-    return member;
-}
-
-struct AstNode* parse_struct_members(struct Parser* p) {
-    struct AstNode* list = ast_new_list(AST_STRUCT_MEMBER_LIST);
-    for (0; peek_token(p)->kind != TK_BRACE_R; 0) {
-        struct AstNode* member = parse_struct_member(p);
-        list->last->next = member;
-        list->last = member;
-    }
-    return list;
-}
-
-struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
-    expect(p, TK_K_STRUCT);
-    char* name = parse_ident(p);
-    int struct_index;
-    for (struct_index = 0; struct_index < p->n_structs; struct_index = struct_index + 1) {
-        if (strcmp(name, p->structs[struct_index].name) == 0) {
-            break;
-        }
-    }
-    if (struct_index == p->n_structs) {
-        p->structs[struct_index].name = name;
-        p->n_structs = p->n_structs + 1;
-    }
-    if (peek_token(p)->kind == TK_SEMICOLON) {
-        next_token(p);
-        return ast_new(AST_STRUCT_DECL);
-    }
-    if (p->structs[struct_index].node1) {
-        char* buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_struct_decl_or_def: struct %s redefined", name);
-        fatal_error(buf);
-    }
-    expect(p, TK_BRACE_L);
-    struct AstNode* members = parse_struct_members(p);
-    expect(p, TK_BRACE_R);
-    expect(p, TK_SEMICOLON);
-    struct AstNode* s = ast_new(AST_STRUCT_DEF);
-    s->name = name;
-    s->node1 = members;
-    p->structs[struct_index].node1 = members;
-    return s;
-}
-
 void enter_func(struct Parser* p) {
     p->locals = calloc(LVAR_MAX, sizeof(struct LVar));
     p->n_locals = 0;
@@ -1317,6 +1264,65 @@ struct AstNode* parse_func_decl_or_def(struct Parser* p) {
     func->func_params = params;
     func->func_body = body;
     return func;
+}
+
+struct AstNode* parse_struct_member(struct Parser* p) {
+    struct Type* ty = parse_type(p);
+    char* name = parse_ident(p);
+    expect(p, TK_SEMICOLON);
+    struct AstNode* member = ast_new(AST_STRUCT_MEMBER);
+    member->name = name;
+    member->ty = ty;
+    return member;
+}
+
+struct AstNode* parse_struct_members(struct Parser* p) {
+    struct AstNode* list = ast_new_list(AST_STRUCT_MEMBER_LIST);
+    for (0; peek_token(p)->kind != TK_BRACE_R; 0) {
+        struct AstNode* member = parse_struct_member(p);
+        list->last->next = member;
+        list->last = member;
+    }
+    return list;
+}
+
+struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
+    expect(p, TK_K_STRUCT);
+    char* name = parse_ident(p);
+
+    if (peek_token(p)->kind != TK_SEMICOLON && peek_token(p)->kind != TK_BRACE_L) {
+        p->pos = p->pos - 2;
+        return parse_func_decl_or_def(p);
+    }
+
+    int struct_index;
+    for (struct_index = 0; struct_index < p->n_structs; struct_index = struct_index + 1) {
+        if (strcmp(name, p->structs[struct_index].name) == 0) {
+            break;
+        }
+    }
+    if (struct_index == p->n_structs) {
+        p->structs[struct_index].name = name;
+        p->n_structs = p->n_structs + 1;
+    }
+    if (peek_token(p)->kind == TK_SEMICOLON) {
+        next_token(p);
+        return ast_new(AST_STRUCT_DECL);
+    }
+    if (p->structs[struct_index].node1) {
+        char* buf = calloc(1024, sizeof(char));
+        sprintf(buf, "parse_struct_decl_or_def: struct %s redefined", name);
+        fatal_error(buf);
+    }
+    expect(p, TK_BRACE_L);
+    struct AstNode* members = parse_struct_members(p);
+    expect(p, TK_BRACE_R);
+    expect(p, TK_SEMICOLON);
+    struct AstNode* s = ast_new(AST_STRUCT_DEF);
+    s->name = name;
+    s->node1 = members;
+    p->structs[struct_index].node1 = members;
+    return s;
 }
 
 struct AstNode* parse_toplevel(struct Parser* p) {
