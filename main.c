@@ -32,7 +32,7 @@ int read_all(char* buf) {
     int n = 0;
     for (0; (c = getchar()) != -1; 0) {
         buf[n] = c;
-        n += 1;
+        n = n + 1;
     }
     return n;
 }
@@ -98,141 +98,141 @@ struct Token* tokenize(char* src, int len) {
     for (0; pos < len; 0) {
         char c = src[pos];
         if (c == '(') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_PAREN_L;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == ')') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_PAREN_R;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '{') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_BRACE_L;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '}') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_BRACE_R;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '[') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_BRACKET_L;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == ']') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_BRACKET_R;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == ',') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_COMMA;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == ';') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_SEMICOLON;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '+') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_PLUS;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '&') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_AND;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '-') {
-            pos += 1;
+            pos = pos + 1;
             if (src[pos] == '>') {
-                pos += 1;
+                pos = pos + 1;
                 tok->kind = TK_ARROW;
-                tok += 1;
+                tok = tok + 1;
             } else {
                 tok->kind = TK_MINUS;
-                tok += 1;
+                tok = tok + 1;
             }
         } else if (c == '*') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_STAR;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '/') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_SLASH;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '%') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_PERCENT;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '.') {
-            pos += 1;
+            pos = pos + 1;
             tok->kind = TK_DOT;
-            tok += 1;
+            tok = tok + 1;
         } else if (c == '!') {
-            pos += 1;
+            pos = pos + 1;
             if (src[pos] == '=') {
-                pos += 1;
+                pos = pos + 1;
                 tok->kind = TK_NE;
-                tok += 1;
+                tok = tok + 1;
             } else {
                 tok->kind = TK_NOT;
-                tok += 1;
+                tok = tok + 1;
             }
         } else if (c == '=') {
-            pos += 1;
+            pos = pos + 1;
             if (src[pos] == '=') {
-                pos += 1;
+                pos = pos + 1;
                 tok->kind = TK_EQ;
-                tok += 1;
+                tok = tok + 1;
             } else {
                 tok->kind = TK_ASSIGN;
-                tok += 1;
+                tok = tok + 1;
             }
         } else if (c == '<') {
-            pos += 1;
+            pos = pos + 1;
             if (src[pos] == '=') {
-                pos += 1;
+                pos = pos + 1;
                 tok->kind = TK_LE;
-                tok += 1;
+                tok = tok + 1;
             } else {
                 tok->kind = TK_LT;
-                tok += 1;
+                tok = tok + 1;
             }
         } else if (c == '>') {
-            pos += 1;
+            pos = pos + 1;
             if (src[pos] == '=') {
-                pos += 1;
+                pos = pos + 1;
                 tok->kind = TK_GE;
-                tok += 1;
+                tok = tok + 1;
             } else {
                 tok->kind = TK_GT;
-                tok += 1;
+                tok = tok + 1;
             }
         } else if (c == '"') {
-            pos += 1;
+            pos = pos + 1;
             int start = pos;
             for (0; 1; 0) {
                 int ch = src[pos];
                 if (ch == '\\') {
-                    pos += 1;
+                    pos = pos + 1;
                 } else if (ch == '"') {
                     break;
                 }
-                pos += 1;
+                pos = pos + 1;
             }
             tok->kind = TK_L_STR;
             tok->value = calloc(pos - start + 1, sizeof(char));
             memcpy(tok->value, src + start, pos - start);
-            pos += 1;
-            tok += 1;
+            pos = pos + 1;
+            tok = tok + 1;
         } else if (isdigit(c)) {
             int start = pos;
             for (0; isdigit(src[pos]); 0) {
-                pos += 1;
+                pos = pos + 1;
             }
             tok->kind = TK_L_INT;
             tok->value = calloc(pos - start + 1, sizeof(char));
             memcpy(tok->value, src + start, pos - start);
-            tok += 1;
+            tok = tok + 1;
         } else if (isalpha(c)) {
             int start = pos;
             for (0; isalnum(src[pos]) || src[pos] == '_'; 0) {
-                pos += 1;
+                pos = pos + 1;
             }
             int len = pos - start;
             if (len == 5 && strstr(src + start, "break") == src + start) {
@@ -270,40 +270,40 @@ struct Token* tokenize(char* src, int len) {
                         tok->value = defines[i].to->value;
                         break;
                     }
-                    i += 1;
+                    i = i + 1;
                 }
                 if (defines + i == def) {
                     tok->kind = TK_IDENT;
                 }
             }
-            tok += 1;
+            tok = tok + 1;
         } else if (isspace(c)) {
-            pos += 1;
+            pos = pos + 1;
         } else if (c == '#') {
             // TODO: too ugly implementation!
-            pos += 1;
-            pos += 6;
+            pos = pos + 1;
+            pos = pos + 6;
             for (0; isspace(src[pos]); 0) {
-                pos += 1;
+                pos = pos + 1;
             }
             int start = pos;
             for (0; isalnum(src[pos]) || src[pos] == '_'; 0) {
-                pos += 1;
+                pos = pos + 1;
             }
             def->from = calloc(pos - start + 1, sizeof(char));
             memcpy(def->from, src + start, pos - start);
             for (0; isspace(src[pos]); 0) {
-                pos += 1;
+                pos = pos + 1;
             }
             int start2 = pos;
             for (0; isdigit(src[pos]); 0) {
-                pos += 1;
+                pos = pos + 1;
             }
             def->to = calloc(1, sizeof(struct Token));
             def->to->kind = TK_L_INT;
             def->to->value = calloc(pos - start2 + 1, sizeof(char));
             memcpy(def->to->value, src + start2, pos - start2);
-            def += 1;
+            def = def + 1;
         } else {
             fatal_error("unknown token");
         }
@@ -503,9 +503,9 @@ int type_sizeof_struct(struct Type* ty) {
 
         if (next_offset % align != 0) {
             int padding = align - next_offset % align;
-            next_offset += padding;
+            next_offset = next_offset + padding;
         }
-        next_offset += size;
+        next_offset = next_offset + size;
         if (struct_align < align) {
             struct_align = align;
         }
@@ -514,7 +514,7 @@ int type_sizeof_struct(struct Type* ty) {
     }
     if (next_offset % struct_align != 0) {
         int padding = struct_align - next_offset % struct_align;
-        next_offset += padding;
+        next_offset = next_offset + padding;
     }
     return next_offset;
 }
@@ -549,12 +549,12 @@ int type_offsetof(struct Type* ty, char* name) {
 
         if (next_offset % align != 0) {
             int padding = align - next_offset % align;
-            next_offset += padding;
+            next_offset = next_offset + padding;
         }
         if (strcmp(member->name, name) == 0) {
             return next_offset;
         }
-        next_offset += size;
+        next_offset = next_offset + size;
 
         member = member->next;
     }
@@ -617,7 +617,7 @@ struct Token* peek_token(struct Parser* p) {
 }
 
 struct Token* next_token(struct Parser* p) {
-    p->pos += 1;
+    p->pos = p->pos + 1;
     return p->tokens + p->pos - 1;
 }
 
@@ -638,7 +638,7 @@ struct Token* expect(struct Parser* p, int expected) {
 
 int find_lvar(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_locals; i += 1) {
+    for (i = 0; i < p->n_locals; i = i + 1) {
         if (strcmp(p->locals[i].name, name) == 0) {
             return i;
         }
@@ -648,7 +648,7 @@ int find_lvar(struct Parser* p, char* name) {
 
 int find_func(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_funcs; i += 1) {
+    for (i = 0; i < p->n_funcs; i = i + 1) {
         if (strcmp(p->funcs[i].name, name) == 0) {
             return i;
         }
@@ -665,7 +665,7 @@ char* parse_ident(struct Parser* p) {
 
 int register_str_lit(struct Parser* p, char* s) {
     p->str_literals[p->n_str_literals] = s;
-    p->n_str_literals += 1;
+    p->n_str_literals = p->n_str_literals + 1;
     return p->n_str_literals;
 }
 
@@ -811,7 +811,7 @@ struct Type* parse_type(struct Parser* p) {
         ty->kind = TY_STRUCT;
         char* name = parse_ident(p);
         int struct_index;
-        for (struct_index = 0; struct_index < p->n_structs; struct_index += 1) {
+        for (struct_index = 0; struct_index < p->n_structs; struct_index = struct_index + 1) {
             if (strcmp(name, p->structs[struct_index].name) == 0) {
                 break;
             }
@@ -1067,7 +1067,7 @@ struct AstNode* parse_var_decl(struct Parser* p) {
     }
     p->locals[p->n_locals].name = name;
     p->locals[p->n_locals].ty = ty;
-    p->n_locals += 1;
+    p->n_locals = p->n_locals + 1;
 
     return decl;
 }
@@ -1137,14 +1137,14 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     expect(p, TK_K_STRUCT);
     char* name = parse_ident(p);
     int struct_index;
-    for (struct_index = 0; struct_index < p->n_structs; struct_index += 1) {
+    for (struct_index = 0; struct_index < p->n_structs; struct_index = struct_index + 1) {
         if (strcmp(name, p->structs[struct_index].name) == 0) {
             break;
         }
     }
     if (struct_index == p->n_structs) {
         p->structs[struct_index].name = name;
-        p->n_structs += 1;
+        p->n_structs = p->n_structs + 1;
     }
     if (peek_token(p)->kind == TK_SEMICOLON) {
         next_token(p);
@@ -1176,7 +1176,7 @@ void register_params(struct Parser* p, struct AstNode* params) {
     for (0; param; 0) {
         p->locals[p->n_locals].name = param->name;
         p->locals[p->n_locals].ty = param->ty;
-        p->n_locals += 1;
+        p->n_locals = p->n_locals + 1;
         param = param->next;
     }
 }
@@ -1184,7 +1184,7 @@ void register_params(struct Parser* p, struct AstNode* params) {
 void register_func(struct Parser* p, char* name, struct Type* ty) {
     p->funcs[p->n_funcs].name = name;
     p->funcs[p->n_funcs].ty = ty;
-    p->n_funcs += 1;
+    p->n_funcs = p->n_funcs + 1;
 }
 
 struct AstNode* parse_param(struct Parser* p) {
@@ -1281,7 +1281,7 @@ void assert_ast_kind(struct AstNode* ast, int kind) {
 
 int gen_new_label(struct CodeGen* g) {
     int new_label = g->next_label;
-    g->next_label += 1;
+    g->next_label = g->next_label + 1;
     return new_label;
 }
 
@@ -1311,7 +1311,7 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
         } else {
             fatal_error("gen_func_prologue: too many params");
         }
-        param_index += 1;
+        param_index = param_index + 1;
         param = param->next;
     }
     printf("  sub rsp, %d\n", 8 * LVAR_MAX);
@@ -1462,11 +1462,11 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
     struct AstNode* arg = args->next;
     int n_args = 0;
     for (0; arg; 0) {
-        n_args += 1;
+        n_args = n_args + 1;
         gen_expr(g, arg, GEN_RVAL);
         arg = arg->next;
     }
-    for (int i = n_args - 1; i >= 0; i -= 1) {
+    for (int i = n_args - 1; i >= 0; i = i - 1) {
         if (i == 0) {
             printf("  pop rdi\n");
         } else if (i == 1) {
@@ -1562,7 +1562,7 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
     printf("  # gen_for_stmt\n");
 
     int label = gen_new_label(g);
-    g->loop_labels += 1;
+    g->loop_labels = g->loop_labels + 1;
     *g->loop_labels = label;
 
     gen_expr(g, ast->expr1, GEN_RVAL);
@@ -1578,7 +1578,7 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
     printf("  jmp .Lbegin%d\n", label);
     printf(".Lend%d:\n", label);
 
-    g->loop_labels -= 1;
+    g->loop_labels = g->loop_labels - 1;
 }
 
 void gen_break_stmt(struct CodeGen* g, struct AstNode* ast) {
@@ -1657,7 +1657,7 @@ void gen(struct CodeGen* g, struct AstNode* ast) {
     for (0; *str_lit; 0) {
         printf(".Lstr__%d:\n", str_lit - ast->str_literals + 1);
         printf("  .string \"%s\"\n\n", *str_lit);
-        str_lit += 1;
+        str_lit = str_lit + 1;
     }
 
     printf(".globl main\n\n");
@@ -1677,7 +1677,7 @@ int main() {
     int source_len = read_all(source);
     struct Token* tokens = tokenize(source, source_len);
 
-    // for (int i = 0; tokens[i].kind != TK_EOF; i += 1) {
+    // for (int i = 0; tokens[i].kind != TK_EOF; i = i + 1) {
     //     if (tokens[i].value) {
     //         printf("%s\n", tokens[i].value);
     //     } else {
