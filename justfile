@@ -8,7 +8,7 @@ build N="1":
         gcc -g -O0 -o p4dcc main.c {{CFLAGS}}
     else
         ./p4dcc < main.c > main{{N}}.s
-        gcc -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
+        gcc -s -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
     fi
 
 build N: build
