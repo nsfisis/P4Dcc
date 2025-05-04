@@ -643,7 +643,7 @@ struct Token* expect(struct Parser* p, int expected) {
         return t;
     }
 
-    char buf[1024];
+    char* buf = calloc(1024, sizeof(char));
     sprintf(buf, "expected %d, but got %d", expected, t->kind);
     fatal_error(buf);
 }
@@ -704,7 +704,7 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
             struct AstNode* e = ast_new(AST_FUNC_CALL);
             int func_index = find_func(p, name);
             if (func_index == -1) {
-                char buf[1024];
+                char* buf = calloc(1024, sizeof(char));
                 sprintf(buf, "undefined function: %s", name);
                 fatal_error(buf);
             }
@@ -715,7 +715,7 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
 
         int var_index = find_lvar(p, name);
         if (var_index == -1) {
-            char buf[1024];
+            char* buf = calloc(1024, sizeof(char));
             sprintf(buf, "undefined variable: %s", name);
             fatal_error(buf);
         }
@@ -726,7 +726,7 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
         e->ty = p->locals[var_index].ty;
         return e;
     } else {
-        char buf[1024];
+        char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "expected primary expression, but got %d", t->kind);
         fatal_error(buf);
     }
@@ -806,7 +806,7 @@ int is_type_token(int token_kind) {
 struct Type* parse_type(struct Parser* p) {
     struct Token* t = next_token(p);
     if (!is_type_token(t->kind)) {
-        char buf[1024];
+        char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_type: unknown type, %d", t->kind);
         fatal_error(buf);
     }
@@ -829,7 +829,7 @@ struct Type* parse_type(struct Parser* p) {
             }
         }
         if (struct_index == p->n_structs) {
-            char buf[1024];
+            char* buf = calloc(1024, sizeof(char));
             sprintf(buf, "parse_type: unknown struct, %s", name);
             fatal_error(buf);
         }
@@ -1108,7 +1108,7 @@ struct AstNode* parse_var_decl(struct Parser* p) {
     expect(p, TK_SEMICOLON);
 
     if (find_lvar(p, name) != -1) {
-        char buf[1024];
+        char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_var_decl: %s redeclared", name);
         fatal_error(buf);
     }
@@ -1211,7 +1211,7 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
         return ast_new(AST_STRUCT_DECL);
     }
     if (p->structs[struct_index].node1) {
-        char buf[1024];
+        char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_struct_decl_or_def: struct %s redefined", name);
         fatal_error(buf);
     }
@@ -1333,7 +1333,7 @@ struct CodeGen* codegen_new() {
 
 void assert_ast_kind(struct AstNode* ast, int kind) {
     if (ast->kind != kind) {
-        char buf[1024];
+        char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "invalid ast kind: expected %d, but got %d", kind, ast->kind);
         fatal_error(buf);
     }
@@ -1726,7 +1726,7 @@ void gen_stmt(struct CodeGen* g, struct AstNode* ast) {
     } else if (ast->kind == AST_VAR_DECL) {
         gen_var_decl(g, ast);
     } else {
-        char buf[1024];
+        char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "gen_stmt: expected statement ast, but got %d", ast->kind);
         fatal_error(buf);
     }
@@ -1766,8 +1766,7 @@ void gen(struct CodeGen* g, struct AstNode* ast) {
 }
 
 int main() {
-    char source[1024*1024];
-    memset(source, 0, sizeof(source));
+    char* source = calloc(1024*1024, sizeof(char));
     int source_len = read_all(source);
     struct Token* tokens = tokenize(source, source_len);
 
