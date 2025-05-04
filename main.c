@@ -1481,7 +1481,7 @@ void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
         gen_expr(g, ast->expr1, GEN_RVAL);
     } else {
         gen_expr(g, ast->expr1, GEN_RVAL);
-        gen_lval2rval(ast->expr1->ty);
+        gen_lval2rval(ast->expr1->ty->to);
     }
 }
 
