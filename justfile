@@ -7,7 +7,12 @@ build N="1":
     if [[ {{N}} = 1 ]]; then
         gcc -g -O0 -o p4dcc main.c {{CFLAGS}}
     else
-        ./p4dcc < main.c > main{{N}}.s
+        if [[ {{N}} = 2 ]]; then
+            prev=""
+        else
+            prev=$(({{N}} - 1))
+        fi
+        "./p4dcc${prev}" < main.c > main{{N}}.s
         gcc -s -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
     fi
 
