@@ -82,9 +82,16 @@ typedef struct Token {
     char* value;
 } TOKEN;
 
+typedef struct Define {
+    char* from;
+    TOKEN* to;
+} DEFINE;
+
 TOKEN* tokenize(char* src, int len) {
     TOKEN* tokens = calloc(1024*1024, sizeof(TOKEN));
     TOKEN* tok = tokens;
+    DEFINE* defines = calloc(1024, sizeof(DEFINE));
+    DEFINE* def = defines;
     int pos = 0;
     while (pos < len) {
         char c = src[pos];
@@ -240,13 +247,50 @@ TOKEN* tokenize(char* src, int len) {
             } else if (strstr(src + start, "void") == src + start) {
                 tok->kind = TK_K_VOID;
             } else {
-                tok->kind = TK_IDENT;
+                // TODO
                 tok->value = calloc(pos - start + 1, sizeof(char));
                 memcpy(tok->value, src + start, pos - start);
+                int i = 0;
+                while (defines + i != def) {
+                    if (strcmp(tok->value, defines[i].from) == 0) {
+                        tok->kind = defines[i].to->kind;
+                        tok->value = defines[i].to->value;
+                        break;
+                    }
+                    i += 1;
+                }
+                if (defines + i == def) {
+                    tok->kind = TK_IDENT;
+                }
             }
             tok += 1;
         } else if (isspace(c)) {
             pos += 1;
+        } else if (c == '#') {
+            // TODO: too ugly implementation!
+            pos += 1;
+            pos += 6;
+            while (isspace(src[pos])) {
+                pos += 1;
+            }
+            int start = pos;
+            while (isalnum(src[pos]) || src[pos] == '_') {
+                pos += 1;
+            }
+            def->from = calloc(pos - start + 1, sizeof(char));
+            memcpy(def->from, src + start, pos - start);
+            while (isspace(src[pos])) {
+                pos += 1;
+            }
+            int start2 = pos;
+            while (isdigit(src[pos])) {
+                pos += 1;
+            }
+            def->to = calloc(1, sizeof(TOKEN));
+            def->to->kind = TK_L_INT;
+            def->to->value = calloc(pos - start2 + 1, sizeof(char));
+            memcpy(def->to->value, src + start2, pos - start2);
+            def += 1;
         } else {
             fatal_error("unknown token");
         }
