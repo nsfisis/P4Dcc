@@ -302,7 +302,7 @@ typedef struct AstNode {
     struct AstNode* expr2;
     struct AstNode* expr3;
     int op;
-    TYPE* var_ty;
+    TYPE* ty;
     int var_index;
     struct AstNode* node1;
     struct AstNode* node2;
@@ -676,7 +676,7 @@ AST* parse_var_decl(PARSER* p) {
     char* name = parse_ident(p);
     AST* decl = ast_new(AST_VAR_DECL);
     expect(p, TK_SEMICOLON);
-    decl->var_ty = ty;
+    decl->ty = ty;
     decl->name = name;
 
     if (parse_find_lvar(p, name) != -1) {
@@ -749,7 +749,7 @@ AST* parse_param(PARSER* p) {
     TYPE* ty = parse_type(p);
     char* name = parse_ident(p);
     AST* param = ast_new(AST_PARAM);
-    param->var_ty = ty;
+    param->ty = ty;
     param->name = name;
     return param;
 }
@@ -784,6 +784,7 @@ AST* parse_func_decl_or_def(PARSER* p) {
     parse_register_params(p, params);
     AST* body = parse_block_stmt(p);
     AST* func = ast_new(AST_FUNC_DEF);
+    func->ty = ty;
     func->name = name->value;
     func->func_params = params;
     func->func_body = body;
