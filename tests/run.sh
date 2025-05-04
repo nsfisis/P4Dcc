@@ -1,6 +1,6 @@
 set -e
 
-export p4dcc="../../../p4dcc"
+export p4dcc="../../../$BIN"
 
 export testcase=$1
 export tmp_dir="tests/tmp/$testcase"

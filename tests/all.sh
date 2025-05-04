@@ -1,7 +1,5 @@
 set -e
 
-export p4dcc="../../../p4dcc"
-
 rm -rf tests/tmp
 mkdir -p tests/tmp
 for i in $(seq 1 999); do
