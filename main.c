@@ -737,6 +737,7 @@ AST* parse_param(PARSER* p) {
         AST* param = ast_new(AST_PARAM);
         param->var_ty = type_new(TY_INT);
         param->name = name;
+        return param;
     } else {
         fatal_error("parse_param: expect type");
     }
