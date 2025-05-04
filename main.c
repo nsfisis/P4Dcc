@@ -287,7 +287,6 @@ struct Token* tokenize(char* src, int len) {
             } else if (len == 4 && strstr(src + start, "void") == src + start) {
                 tok->kind = TK_K_VOID;
             } else {
-                // TODO
                 tok->value = calloc(len + 1, sizeof(char));
                 memcpy(tok->value, src + start, len);
                 int i = 0;
@@ -307,7 +306,6 @@ struct Token* tokenize(char* src, int len) {
         } else if (isspace(c)) {
             pos = pos + 1;
         } else if (c == '#') {
-            // TODO: too ugly implementation!
             pos = pos + 1;
             pos = pos + 6;
             for (0; isspace(src[pos]); 0) {
@@ -776,7 +774,6 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             next_token(p);
             char* name = parse_ident(p);
 
-            // a.b  ==  *(&a + offsetof(b))
             struct AstNode* e = ast_new(AST_DEREF_EXPR);
             struct AstNode* ref_of_ret = ast_new(AST_REF_EXPR);
             ref_of_ret->expr1 = ret;
@@ -795,7 +792,6 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             next_token(p);
             char* name = parse_ident(p);
 
-            // a->b  ==  *(a + offsetof(b))
             struct AstNode* e = ast_new(AST_DEREF_EXPR);
             int offset = type_offsetof(ret->ty->to, name);
             struct AstNode* offset_node = ast_new(AST_OFFSETOF);
@@ -1035,7 +1031,6 @@ struct AstNode* parse_assignment_expr(struct Parser *p) {
             next_token(p);
             struct AstNode* rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
-            // TODO: support type coercion?
             lhs->ty = rhs->ty;
         } else {
             break;
@@ -1592,7 +1587,6 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
             fatal_error("gen_func_call: too many args");
         }
     }
-    // TODO: rsp align
     printf("  mov rax, 0\n");
     printf("  call %s\n", func_name);
     printf("  push rax\n");
@@ -1784,14 +1778,6 @@ int main() {
     char* source = calloc(1024*1024, sizeof(char));
     int source_len = read_all(source);
     struct Token* tokens = tokenize(source, source_len);
-
-    // for (int i = 0; tokens[i].kind != TK_EOF; i = i + 1) {
-    //     if (tokens[i].value) {
-    //         printf("%s\n", tokens[i].value);
-    //     } else {
-    //         printf("(%d)\n", tokens[i].kind);
-    //     }
-    // }
 
     struct Parser* parser = parser_new(tokens);
     struct AstNode* ast = parse(parser);
