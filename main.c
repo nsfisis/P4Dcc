@@ -6,15 +6,11 @@ int isalnum();
 int isalpha();
 int isdigit();
 int isspace();
-void* malloc();
 void* memcpy();
-void* memset();
 int printf();
-int putchar();
 int sprintf();
 int strcmp();
 char* strstr();
-long strtol();
 
 #define NULL 0
 
