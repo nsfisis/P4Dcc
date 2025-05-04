@@ -40,44 +40,46 @@ int read_all(char* buf) {
 #define TK_EOF        0
 
 #define TK_AND        1
-#define TK_ARROW      2
-#define TK_ASSIGN     3
-#define TK_BRACE_L    4
-#define TK_BRACE_R    5
-#define TK_BRACKET_L  6
-#define TK_BRACKET_R  7
-#define TK_COMMA      8
-#define TK_DOT        9
-#define TK_EQ         10
-#define TK_GE         11
-#define TK_GT         12
-#define TK_IDENT      13
-#define TK_K_BREAK    14
-#define TK_K_CHAR     15
-#define TK_K_CONTINUE 16
-#define TK_K_ELSE     17
-#define TK_K_FOR      18
-#define TK_K_IF       19
-#define TK_K_INT      20
-#define TK_K_LONG     21
-#define TK_K_RETURN   22
-#define TK_K_SIZEOF   23
-#define TK_K_STRUCT   24
-#define TK_K_VOID     25
-#define TK_LE         26
-#define TK_LT         27
-#define TK_L_INT      28
-#define TK_L_STR      29
-#define TK_MINUS      30
-#define TK_NE         31
-#define TK_NOT        32
-#define TK_PAREN_L    33
-#define TK_PAREN_R    34
-#define TK_PERCENT    35
-#define TK_PLUS       36
-#define TK_SEMICOLON  37
-#define TK_SLASH      38
-#define TK_STAR       39
+#define TK_ANDAND     2
+#define TK_ARROW      3
+#define TK_ASSIGN     4
+#define TK_BRACE_L    5
+#define TK_BRACE_R    6
+#define TK_BRACKET_L  7
+#define TK_BRACKET_R  8
+#define TK_COMMA      9
+#define TK_DOT        10
+#define TK_EQ         11
+#define TK_GE         12
+#define TK_GT         13
+#define TK_IDENT      14
+#define TK_K_BREAK    15
+#define TK_K_CHAR     16
+#define TK_K_CONTINUE 17
+#define TK_K_ELSE     18
+#define TK_K_FOR      19
+#define TK_K_IF       20
+#define TK_K_INT      21
+#define TK_K_LONG     22
+#define TK_K_RETURN   23
+#define TK_K_SIZEOF   24
+#define TK_K_STRUCT   25
+#define TK_K_VOID     26
+#define TK_LE         27
+#define TK_LT         28
+#define TK_L_INT      29
+#define TK_L_STR      30
+#define TK_MINUS      31
+#define TK_NE         32
+#define TK_NOT        33
+#define TK_OROR       34
+#define TK_PAREN_L    35
+#define TK_PAREN_R    36
+#define TK_PERCENT    37
+#define TK_PLUS       38
+#define TK_SEMICOLON  39
+#define TK_SLASH      40
+#define TK_STAR       41
 
 struct Token {
     int kind;
@@ -133,10 +135,20 @@ struct Token* tokenize(char* src, int len) {
             pos = pos + 1;
             tok->kind = TK_PLUS;
             tok = tok + 1;
+        } else if (c == '|') {
+            pos = pos + 2;
+            tok->kind = TK_OROR;
+            tok = tok + 1;
         } else if (c == '&') {
             pos = pos + 1;
-            tok->kind = TK_AND;
-            tok = tok + 1;
+            if (src[pos] == '&') {
+                pos = pos + 1;
+                tok->kind = TK_ANDAND;
+                tok = tok + 1;
+            } else {
+                tok->kind = TK_AND;
+                tok = tok + 1;
+            }
         } else if (c == '-') {
             pos = pos + 1;
             if (src[pos] == '>') {
@@ -968,13 +980,45 @@ struct AstNode* parse_equality_expr(struct Parser* p) {
     return lhs;
 }
 
-struct AstNode* parse_assignment_expr(struct Parser *p) {
+struct AstNode* parse_logical_and_expr(struct Parser* p) {
     struct AstNode* lhs = parse_equality_expr(p);
+    for (0; 1; 0) {
+        int op = peek_token(p)->kind;
+        if (op == TK_ANDAND) {
+            next_token(p);
+            struct AstNode* rhs = parse_equality_expr(p);
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = type_new(TY_INT);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+struct AstNode* parse_logical_or_expr(struct Parser* p) {
+    struct AstNode* lhs = parse_logical_and_expr(p);
+    for (0; 1; 0) {
+        int op = peek_token(p)->kind;
+        if (op == TK_OROR) {
+            next_token(p);
+            struct AstNode* rhs = parse_logical_and_expr(p);
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = type_new(TY_INT);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+struct AstNode* parse_assignment_expr(struct Parser *p) {
+    struct AstNode* lhs = parse_logical_or_expr(p);
     for (0; 1; 0) {
         int op = peek_token(p)->kind;
         if (op == TK_ASSIGN) {
             next_token(p);
-            struct AstNode* rhs = parse_equality_expr(p);
+            struct AstNode* rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
             // TODO: support type coercion?
             lhs->ty = rhs->ty;
@@ -1374,9 +1418,43 @@ void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     }
 }
 
+void gen_logical_expr(struct CodeGen* g, struct AstNode* ast) {
+    assert_ast_kind(ast, AST_BINARY_EXPR);
+    printf("  # gen_logical_expr\n");
+
+    int label = gen_new_label(g);
+
+    if (ast->op == TK_ANDAND) {
+        gen_expr(g, ast->expr1, GEN_RVAL);
+        printf("  pop rax\n");
+        printf("  cmp rax, 0\n");
+        printf("  je .Lelse%d\n", label);
+        gen_expr(g, ast->expr2, GEN_RVAL);
+        printf("  jmp .Lend%d\n", label);
+        printf(".Lelse%d:\n", label);
+        printf("  push 0\n");
+        printf(".Lend%d:\n", label);
+    } else {
+        gen_expr(g, ast->expr1, GEN_RVAL);
+        printf("  pop rax\n");
+        printf("  cmp rax, 0\n");
+        printf("  je .Lelse%d\n", label);
+        printf("  push 1\n");
+        printf("  jmp .Lend%d\n", label);
+        printf(".Lelse%d:\n", label);
+        gen_expr(g, ast->expr2, GEN_RVAL);
+        printf(".Lend%d:\n", label);
+    }
+}
+
 void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     assert_ast_kind(ast, AST_BINARY_EXPR);
     printf("  # gen_binary_expr\n");
+
+    if (ast->op == TK_ANDAND || ast->op == TK_OROR) {
+        gen_logical_expr(g, ast);
+        return;
+    }
 
     gen_expr(g, ast->expr1, gen_mode);
     gen_expr(g, ast->expr2, gen_mode);
