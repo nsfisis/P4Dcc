@@ -222,34 +222,35 @@ TOKEN* tokenize(char* src, int len) {
             while (isalnum(src[pos]) || src[pos] == '_') {
                 pos += 1;
             }
-            if (strstr(src + start, "break") == src + start) {
+            int len = pos - start;
+            if (len == 5 && strstr(src + start, "break") == src + start) {
                 tok->kind = TK_K_BREAK;
-            } else if (strstr(src + start, "char") == src + start) {
+            } else if (len == 4 && strstr(src + start, "char") == src + start) {
                 tok->kind = TK_K_CHAR;
-            } else if (strstr(src + start, "continue") == src + start) {
+            } else if (len == 8 && strstr(src + start, "continue") == src + start) {
                 tok->kind = TK_K_CONTINUE;
-            } else if (strstr(src + start, "else") == src + start) {
+            } else if (len == 4 && strstr(src + start, "else") == src + start) {
                 tok->kind = TK_K_ELSE;
-            } else if (strstr(src + start, "for") == src + start) {
+            } else if (len == 3 && strstr(src + start, "for") == src + start) {
                 tok->kind = TK_K_FOR;
-            } else if (strstr(src + start, "if") == src + start) {
+            } else if (len == 2 && strstr(src + start, "if") == src + start) {
                 tok->kind = TK_K_IF;
-            } else if (strstr(src + start, "int") == src + start) {
+            } else if (len == 3 && strstr(src + start, "int") == src + start) {
                 tok->kind = TK_K_INT;
-            } else if (strstr(src + start, "long") == src + start) {
+            } else if (len == 4 && strstr(src + start, "long") == src + start) {
                 tok->kind = TK_K_LONG;
-            } else if (strstr(src + start, "return") == src + start) {
+            } else if (len == 6 && strstr(src + start, "return") == src + start) {
                 tok->kind = TK_K_RETURN;
-            } else if (strstr(src + start, "sizeof") == src + start) {
+            } else if (len == 6 && strstr(src + start, "sizeof") == src + start) {
                 tok->kind = TK_K_SIZEOF;
-            } else if (strstr(src + start, "struct") == src + start) {
+            } else if (len == 6 && strstr(src + start, "struct") == src + start) {
                 tok->kind = TK_K_STRUCT;
-            } else if (strstr(src + start, "void") == src + start) {
+            } else if (len == 4 && strstr(src + start, "void") == src + start) {
                 tok->kind = TK_K_VOID;
             } else {
                 // TODO
-                tok->value = calloc(pos - start + 1, sizeof(char));
-                memcpy(tok->value, src + start, pos - start);
+                tok->value = calloc(len + 1, sizeof(char));
+                memcpy(tok->value, src + start, len);
                 int i = 0;
                 while (defines + i != def) {
                     if (strcmp(tok->value, defines[i].from) == 0) {
@@ -307,9 +308,12 @@ TOKEN* tokenize(char* src, int len) {
 #define TY_PTR     5
 #define TY_STRUCT  6
 
+struct AstNode;
+
 typedef struct Type {
     int kind;
     struct Type* to;
+    struct AstNode* members;
 } TYPE;
 
 TYPE* type_new(int kind) {
@@ -366,32 +370,36 @@ int type_ptr_shift_width(TYPE* ty) {
     }
 }
 
-#define AST_UNKNOWN       0
+#define AST_UNKNOWN            0
 
-#define AST_ARG_LIST      1
-#define AST_ASSIGN_EXPR   2
-#define AST_BINARY_EXPR   3
-#define AST_BLOCK         4
-#define AST_BREAK_STMT    5
-#define AST_CONTINUE_STMT 6
-#define AST_DEREF_EXPR    7
-#define AST_EXPR_STMT     8
-#define AST_FOR_STMT      9
-#define AST_FUNC_CALL     10
-#define AST_FUNC_DECL     11
-#define AST_FUNC_DEF      12
-#define AST_IF_STMT       13
-#define AST_INT_LIT_EXPR  14
-#define AST_LVAR          15
-#define AST_PARAM         16
-#define AST_PARAM_LIST    17
-#define AST_PROGRAM       18
-#define AST_REF_EXPR      19
-#define AST_RETURN_STMT   20
-#define AST_STR_LIT_EXPR  21
-#define AST_TYPE          22
-#define AST_UNARY_EXPR    23
-#define AST_VAR_DECL      24
+#define AST_ARG_LIST           1
+#define AST_ASSIGN_EXPR        2
+#define AST_BINARY_EXPR        3
+#define AST_BLOCK              4
+#define AST_BREAK_STMT         5
+#define AST_CONTINUE_STMT      6
+#define AST_DEREF_EXPR         7
+#define AST_EXPR_STMT          8
+#define AST_FOR_STMT           9
+#define AST_FUNC_CALL          10
+#define AST_FUNC_DECL          11
+#define AST_FUNC_DEF           12
+#define AST_IF_STMT            13
+#define AST_INT_LIT_EXPR       14
+#define AST_LVAR               15
+#define AST_PARAM              16
+#define AST_PARAM_LIST         17
+#define AST_PROGRAM            18
+#define AST_REF_EXPR           19
+#define AST_RETURN_STMT        20
+#define AST_STRUCT_DECL        21
+#define AST_STRUCT_DEF         22
+#define AST_STRUCT_MEMBER      24
+#define AST_STRUCT_MEMBER_LIST 26
+#define AST_STR_LIT_EXPR       28
+#define AST_TYPE               30
+#define AST_UNARY_EXPR         32
+#define AST_VAR_DECL           34
 
 typedef struct AstNode {
     int kind;
@@ -419,7 +427,7 @@ AST* ast_new(int kind) {
 }
 
 AST* ast_new_list(int kind) {
-    if (kind != AST_PROGRAM && kind != AST_BLOCK && kind != AST_ARG_LIST && kind != AST_PARAM_LIST) {
+    if (kind != AST_PROGRAM && kind != AST_BLOCK && kind != AST_ARG_LIST && kind != AST_PARAM_LIST && kind != AST_STRUCT_MEMBER_LIST) {
         fatal_error("ast_new_list: non-list ast");
     }
     AST* ast = ast_new(kind);
@@ -469,6 +477,8 @@ typedef struct Parser {
     int n_locals;
     FUNC* funcs;
     int n_funcs;
+    AST* structs;
+    int n_structs;
     char** str_literals;
     int n_str_literals;
 } PARSER;
@@ -477,6 +487,7 @@ PARSER* parser_new(TOKEN* tokens) {
     PARSER* p = calloc(1, sizeof(PARSER));
     p->tokens = tokens;
     p->funcs = calloc(128, sizeof(FUNC));
+    p->structs = calloc(64, sizeof(AST));
     p->str_literals = calloc(1024, sizeof(char*));
     return p;
 }
@@ -622,13 +633,15 @@ AST* parse_postfix_expr(PARSER* p) {
 }
 
 int is_type_token(int token_kind) {
-    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID;
+    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID || token_kind == TK_K_STRUCT;
 }
 
 TYPE* parse_type(PARSER* p) {
     TOKEN* t = next_token(p);
     if (!is_type_token(t->kind)) {
-        fatal_error("parse_type: unknown type");
+        char buf[1024];
+        sprintf(buf, "parse_type: unknown type, %d", t->kind);
+        fatal_error(buf);
     }
     TYPE* ty = type_new(TY_UNKNOWN);
     if (t->kind == TK_K_INT) {
@@ -639,6 +652,23 @@ TYPE* parse_type(PARSER* p) {
         ty->kind = TY_CHAR;
     } else if (t->kind == TK_K_VOID) {
         ty->kind = TY_VOID;
+    } else if (t->kind == TK_K_STRUCT) {
+        ty->kind = TY_STRUCT;
+        char* name = parse_ident(p);
+        int struct_index;
+        for (struct_index = 0; struct_index < p->n_structs; struct_index++) {
+            if (strcmp(name, p->structs[struct_index].name) == 0) {
+                break;
+            }
+        }
+        if (struct_index == p->n_structs) {
+            char buf[1024];
+            sprintf(buf, "parse_type: unknown struct, %s", name);
+            fatal_error(buf);
+        }
+        ty->members = p->structs[struct_index].node1;
+    } else {
+        fatal_error("unreachable");
     }
     while (1) {
         TOKEN* t2 = peek_token(p);
@@ -928,6 +958,46 @@ AST* parse_stmt(PARSER* p) {
     }
 }
 
+AST* parse_struct_member(PARSER* p) {
+    TYPE* ty = parse_type(p);
+    char* name = parse_ident(p);
+    expect(p, TK_SEMICOLON);
+    AST* member = ast_new(AST_STRUCT_MEMBER);
+    member->name = name;
+    member->ty = ty;
+    return member;
+}
+
+AST* parse_struct_members(PARSER* p) {
+    AST* list = ast_new_list(AST_STRUCT_MEMBER_LIST);
+    while (peek_token(p)->kind != TK_BRACE_R) {
+        AST* member = parse_struct_member(p);
+        list->last->next = member;
+        list->last = member;
+    }
+    return list;
+}
+
+AST* parse_struct_decl_or_def(PARSER* p) {
+    expect(p, TK_K_STRUCT);
+    char* name = parse_ident(p);
+    p->structs[p->n_structs].name = name;
+    p->n_structs += 1;
+    if (peek_token(p)->kind == TK_SEMICOLON) {
+        next_token(p);
+        return ast_new(AST_STRUCT_DECL);
+    }
+    expect(p, TK_BRACE_L);
+    AST* members = parse_struct_members(p);
+    expect(p, TK_BRACE_R);
+    expect(p, TK_SEMICOLON);
+    AST* s = ast_new(AST_STRUCT_DEF);
+    s->name = name;
+    s->node1 = members;
+    p->structs[p->n_structs - 1].node1 = members;
+    return s;
+}
+
 void enter_func(PARSER* p) {
     p->locals = calloc(LVAR_MAX, sizeof(LVAR));
     p->n_locals = 0;
@@ -1000,7 +1070,11 @@ AST* parse_func_decl_or_def(PARSER* p) {
 }
 
 AST* parse_toplevel(PARSER* p) {
-    return parse_func_decl_or_def(p);
+    if (peek_token(p)->kind == TK_K_STRUCT) {
+        return parse_struct_decl_or_def(p);
+    } else {
+        return parse_func_decl_or_def(p);
+    }
 }
 
 AST* parse(PARSER* p) {
