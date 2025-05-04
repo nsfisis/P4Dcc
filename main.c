@@ -230,6 +230,8 @@ TOKEN* tokenize(char* src, int len) {
                 tok->kind = TK_K_SIZEOF;
             } else if (strstr(src + start, "struct") == src + start) {
                 tok->kind = TK_K_STRUCT;
+            } else if (strstr(src + start, "void") == src + start) {
+                tok->kind = TK_K_VOID;
             } else {
                 tok->kind = TK_IDENT;
                 tok->value = calloc(pos - start + 1, sizeof(char));
@@ -251,18 +253,29 @@ TOKEN* tokenize(char* src, int len) {
 #define TY_INT     2
 #define TY_LONG    3
 #define TY_VOID    4
-#define TY_STRUCT  5
-#define TY_ARR     6
-#define TY_PTR     7
+#define TY_PTR     5
+#define TY_STRUCT  6
 
 typedef struct Type {
     int kind;
+    struct Type* to;
 } TYPE;
 
 TYPE* type_new(int kind) {
     TYPE* ty = calloc(1, sizeof(TYPE));
     ty->kind = kind;
     return ty;
+}
+
+TYPE* type_new_ptr(TYPE* to) {
+    TYPE* ty = calloc(1, sizeof(TYPE));
+    ty->kind = TY_PTR;
+    ty->to = to;
+    return ty;
+}
+
+int type_is_valid_for_var(TYPE* ty) {
+    return ty->kind != TY_VOID;
 }
 
 #define AST_UNKNOWN       0
@@ -668,11 +681,23 @@ TYPE* parse_type(PARSER* p) {
     } else if (t->kind == TK_K_VOID) {
         ty->kind = TY_VOID;
     }
+    while (1) {
+        TOKEN* t2 = peek_token(p);
+        if (t2->kind == TK_STAR) {
+            next_token(p);
+            ty = type_new_ptr(ty);
+        } else {
+            break;
+        }
+    }
     return ty;
 }
 
 AST* parse_var_decl(PARSER* p) {
     TYPE* ty = parse_type(p);
+    if (!type_is_valid_for_var(ty)) {
+        fatal_error("parse_var_decl: invalid type for variable");
+    }
     char* name = parse_ident(p);
     AST* decl = ast_new(AST_VAR_DECL);
     expect(p, TK_SEMICOLON);
@@ -747,6 +772,9 @@ void parse_register_params(PARSER* p, AST* params) {
 
 AST* parse_param(PARSER* p) {
     TYPE* ty = parse_type(p);
+    if (!type_is_valid_for_var(ty)) {
+        fatal_error("parse_param: invalid type for variable");
+    }
     char* name = parse_ident(p);
     AST* param = ast_new(AST_PARAM);
     param->ty = ty;
