@@ -1099,10 +1099,13 @@ struct AstNode* parse_var_decl(struct Parser* p) {
         fatal_error("parse_var_decl: invalid type for variable");
     }
     char* name = parse_ident(p);
-    struct AstNode* decl = ast_new(AST_VAR_DECL);
+
+    struct AstNode* init = NULL;
+    if (peek_token(p)->kind == TK_ASSIGN) {
+        next_token(p);
+        init = parse_expr(p);
+    }
     expect(p, TK_SEMICOLON);
-    decl->ty = ty;
-    decl->name = name;
 
     if (find_lvar(p, name) != -1) {
         char buf[1024];
@@ -1113,7 +1116,20 @@ struct AstNode* parse_var_decl(struct Parser* p) {
     p->locals[p->n_locals].ty = ty;
     p->n_locals = p->n_locals + 1;
 
-    return decl;
+    struct AstNode* ret;
+    if (init) {
+        struct AstNode* lhs = ast_new(AST_LVAR);
+        lhs->name = name;
+        lhs->var_index = p->n_locals - 1;
+        lhs->ty = ty;
+        struct AstNode* assign = ast_new_assign_expr(TK_ASSIGN, lhs, init);
+        assign->ty = ty;
+        ret = ast_new(AST_EXPR_STMT);
+        ret->expr1 = assign;
+    } else {
+        ret = ast_new(AST_VAR_DECL);
+    }
+    return ret;
 }
 
 struct AstNode* parse_expr_stmt(struct Parser* p) {
