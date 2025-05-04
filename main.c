@@ -16,6 +16,8 @@ int strcmp();
 char* strstr();
 long strtol();
 
+#define NULL 0
+
 void fatal_error(char* msg) {
     printf("%s\n", msg);
     exit(1);
@@ -774,7 +776,7 @@ AST* parse_if_stmt(PARSER* p) {
     AST* cond = parse_expr(p);
     expect(p, TK_PAREN_R);
     AST* then_body = parse_stmt(p);
-    AST* else_body = 0;
+    AST* else_body = NULL;
     if (peek_token(p)->kind == TK_K_ELSE) {
         next_token(p);
         else_body = parse_stmt(p);
