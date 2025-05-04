@@ -1455,6 +1455,20 @@ void gen_ref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     gen_expr(g, ast->expr1, GEN_LVAL);
 }
 
+void gen_lval2rval(struct Type* ty) {
+    int size = type_sizeof(ty);
+
+    printf("  pop rax\n");
+    if (size == 1) {
+        printf("  movsx rax, BYTE PTR [rax]\n");
+    } else if (size == 4) {
+        printf("  movsxd rax, DWORD PTR [rax]\n");
+    } else {
+        printf("  mov rax, [rax]\n");
+    }
+    printf("  push rax\n");
+}
+
 void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     assert_ast_kind(ast, AST_DEREF_EXPR);
     printf("  # gen_deref_expr\n");
@@ -1463,8 +1477,7 @@ void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
         gen_expr(g, ast->expr1, GEN_RVAL);
     } else {
         gen_expr(g, ast->expr1, GEN_RVAL);
-        printf("  pop rax\n");
-        printf("  push [rax]\n");
+        gen_lval2rval(ast->expr1->ty);
     }
 }
 
@@ -1575,7 +1588,13 @@ void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
     printf("  pop rdi\n");
     printf("  pop rax\n");
     if (ast->op == TK_ASSIGN) {
-        printf("  mov [rax], rdi\n");
+        if (type_sizeof(ast->expr1->ty) == 1) {
+            printf("  mov BYTE PTR [rax], dil\n");
+        } else if (type_sizeof(ast->expr1->ty) == 4) {
+            printf("  mov DWORD PTR [rax], edi\n");
+        } else {
+            printf("  mov [rax], rdi\n");
+        }
         printf("  push rdi\n");
     } else {
         fatal_error("gen_assign_expr: unknown assign op");
@@ -1627,8 +1646,7 @@ void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     printf("  sub rax, %d\n", offset);
     printf("  push rax\n");
     if (gen_mode == GEN_RVAL) {
-        printf("  pop rax\n");
-        printf("  push [rax]\n");
+        gen_lval2rval(ast->ty);
     }
 }
 

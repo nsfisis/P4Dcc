@@ -6,7 +6,10 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 gcc -Wl,-z,noexecstack -o a.out main.s
-./a.out > output
+if [[ ! -f input ]]; then
+    touch input
+fi
+./a.out < input > output
 exit_code=$?
 
 if [[ $exit_code -ne 0 ]]; then
