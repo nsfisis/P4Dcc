@@ -650,7 +650,7 @@ AST* parse_continue_stmt(PARSER* p) {
 }
 
 int is_type_token(int token_kind) {
-    return token_kind == TK_K_INT;
+    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID;
 }
 
 TYPE* parse_type(PARSER* p) {
@@ -658,7 +658,16 @@ TYPE* parse_type(PARSER* p) {
     if (!is_type_token(t->kind)) {
         fatal_error("parse_type: unknown type");
     }
-    TYPE* ty = type_new(TK_K_INT);
+    TYPE* ty = type_new(TY_UNKNOWN);
+    if (t->kind == TK_K_INT) {
+        ty->kind = TY_INT;
+    } else if (t->kind == TK_K_LONG) {
+        ty->kind = TY_LONG;
+    } else if (t->kind == TK_K_CHAR) {
+        ty->kind = TY_CHAR;
+    } else if (t->kind == TK_K_VOID) {
+        ty->kind = TY_VOID;
+    }
     return ty;
 }
 
