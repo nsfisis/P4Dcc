@@ -1063,6 +1063,11 @@ struct AstNode* parse_expr(struct Parser* p) {
 
 struct AstNode* parse_return_stmt(struct Parser* p) {
     expect(p, TK_K_RETURN);
+    if (peek_token(p)->kind == TK_SEMICOLON) {
+        next_token(p);
+        return ast_new(AST_RETURN_STMT);
+    }
+
     struct AstNode* expr = parse_expr(p);
     expect(p, TK_SEMICOLON);
 
@@ -1668,8 +1673,10 @@ void gen_return_stmt(struct CodeGen* g, struct AstNode* ast) {
     assert_ast_kind(ast, AST_RETURN_STMT);
     printf("  # gen_return_stmt\n");
 
-    gen_expr(g, ast->expr1, GEN_RVAL);
-    printf("  pop rax\n");
+    if (ast->expr1) {
+        gen_expr(g, ast->expr1, GEN_RVAL);
+        printf("  pop rax\n");
+    }
     gen_func_epilogue(g, ast);
 }
 
