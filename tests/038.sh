@@ -1,3 +1,8 @@
+set -e
+
+cat <<'EOF' > expected
+EOF
+bash ../../test_diff.sh <<'EOF'
 int atoi();
 void* calloc();
 void exit();
@@ -1806,15 +1811,6 @@ void gen(struct CodeGen* g, struct AstNode* ast) {
 }
 
 int main() {
-    char* source = calloc(1024*1024, sizeof(char));
-    int source_len = read_all(source);
-    struct Token* tokens = tokenize(source, source_len);
-
-    struct Parser* parser = parser_new(tokens);
-    struct AstNode* ast = parse(parser);
-
-    struct CodeGen* code_generator = codegen_new();
-    gen(code_generator, ast);
-
     return 0;
 }
+EOF

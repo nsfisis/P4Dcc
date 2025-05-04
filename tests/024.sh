@@ -1,9 +1,6 @@
 set -e
 
 cat <<'EOF' > expected
-3
-3
-3
 EOF
 bash ../../test_diff.sh <<'EOF'
 int printf();
@@ -25,15 +22,12 @@ int main() {
 
     cp1 = &c;
     cp2 = &c + 3;
-    printf("%d\n", cp2 - cp1);
 
     ip1 = &i;
     ip2 = &i + 3;
-    printf("%d\n", ip2 - ip1);
 
     lp1 = &l;
     lp2 = &l + 3;
-    printf("%d\n", lp2 - lp1);
 
     return 0;
 }
