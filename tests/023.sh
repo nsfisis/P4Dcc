@@ -18,6 +18,8 @@ sizeof(long***) = 8
 sizeof(void***) = 8
 EOF
 bash ../../test_diff.sh <<'EOF'
+int printf();
+
 int main() {
     printf("sizeof(int) = %d\n", sizeof(int));
     printf("sizeof(int*) = %d\n", sizeof(int*));

@@ -301,6 +301,25 @@ int type_sizeof(TYPE* ty) {
     }
 }
 
+int type_ptr_shift_width(TYPE* ty) {
+    if (ty->kind != TY_PTR) {
+        fatal_error("type_ptr_shift_width: type is not a pointer");
+    }
+
+    int sz = type_sizeof(ty->to);
+    if (sz == 1) {
+        return 0;
+    } else if (sz == 2) {
+        return 1;
+    } else if (sz == 4) {
+        return 2;
+    } else if (sz == 8) {
+        return 3;
+    } else {
+        todo();
+    }
+}
+
 #define AST_UNKNOWN       0
 
 #define AST_ARG_LIST      1
@@ -389,13 +408,21 @@ AST* ast_new_assign_expr(int op, AST* lhs, AST* rhs) {
 
 typedef struct LVar {
     char* name;
+    TYPE* ty;
 } LVAR;
+
+typedef struct Func {
+    char* name;
+    TYPE* ty;
+} FUNC;
 
 typedef struct Parser {
     TOKEN* tokens;
     int pos;
     LVAR* locals;
     int n_locals;
+    FUNC* funcs;
+    int n_funcs;
     char** str_literals;
     int n_str_literals;
 } PARSER;
@@ -403,6 +430,7 @@ typedef struct Parser {
 PARSER* parser_new(TOKEN* tokens) {
     PARSER* p = calloc(1, sizeof(PARSER));
     p->tokens = tokens;
+    p->funcs = calloc(128, sizeof(FUNC));
     p->str_literals = calloc(1024, sizeof(char*));
     return p;
 }
@@ -431,10 +459,20 @@ TOKEN* expect(PARSER* p, int expected) {
     fatal_error(buf);
 }
 
-int parse_find_lvar(PARSER* p, char* name) {
+int find_lvar(PARSER* p, char* name) {
     int i;
     for (i = 0; i < p->n_locals; i++) {
         if (strcmp(p->locals[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_func(PARSER* p, char* name) {
+    int i;
+    for (i = 0; i < p->n_funcs; i++) {
+        if (strcmp(p->funcs[i].name, name) == 0) {
             return i;
         }
     }
@@ -448,7 +486,7 @@ char* parse_ident(PARSER* p) {
     return expect(p, TK_IDENT)->value;
 }
 
-int parse_register_str_lit(PARSER* p, char* s) {
+int register_str_lit(PARSER* p, char* s) {
     p->str_literals[p->n_str_literals] = s;
     p->n_str_literals += 1;
     return p->n_str_literals;
@@ -459,9 +497,10 @@ AST* parse_primary_expr(PARSER* p) {
     if (t->kind == TK_L_INT) {
         AST* e = ast_new(AST_INT_LIT_EXPR);
         e->int_value = atoi(t->value);
+        e->ty = type_new(TY_INT);
         return e;
     } else if (t->kind == TK_L_STR) {
-        int str_lit_index = parse_register_str_lit(p, t->value);
+        int str_lit_index = register_str_lit(p, t->value);
         AST* e = ast_new(AST_STR_LIT_EXPR);
         e->int_value = str_lit_index;
         return e;
@@ -474,11 +513,18 @@ AST* parse_primary_expr(PARSER* p) {
 
         if (peek_token(p)->kind == TK_PAREN_L) {
             AST* e = ast_new(AST_FUNC_CALL);
+            int func_index = find_func(p, name);
+            if (func_index == -1) {
+                char buf[1024];
+                sprintf(buf, "undefined function: %s", name);
+                fatal_error(buf);
+            }
             e->name = name;
+            e->ty = p->funcs[func_index].ty;
             return e;
         }
 
-        int var_index = parse_find_lvar(p, name);
+        int var_index = find_lvar(p, name);
         if (var_index == -1) {
             char buf[1024];
             sprintf(buf, "undefined variable: %s", name);
@@ -488,6 +534,7 @@ AST* parse_primary_expr(PARSER* p) {
         AST* e = ast_new(AST_LVAR);
         e->name = name;
         e->var_index = var_index;
+        e->ty = p->locals[var_index].ty;
         return e;
     } else {
         char buf[1024];
@@ -566,18 +613,23 @@ AST* parse_prefix_expr(PARSER* p) {
         AST* operand = parse_prefix_expr(p);
         AST* lhs = ast_new(AST_INT_LIT_EXPR);
         lhs->int_value = 0;
-        return ast_new_binary_expr(op, lhs, operand);
+        lhs->ty = type_new(TY_INT);
+        AST* e = ast_new_binary_expr(op, lhs, operand);
+        e->ty = type_new(TY_INT);
+        return e;
     } else if (op == TK_AND) {
         next_token(p);
         AST* operand = parse_prefix_expr(p);
         AST* e = ast_new(AST_REF_EXPR);
         e->expr1 = operand;
+        e->ty = type_new_ptr(operand->ty);
         return e;
     } else if (op == TK_STAR) {
         next_token(p);
         AST* operand = parse_prefix_expr(p);
         AST* e = ast_new(AST_DEREF_EXPR);
         e->expr1 = operand;
+        e->ty = operand->ty->to;
         return e;
     } else if (op == TK_K_SIZEOF) {
         next_token(p);
@@ -586,6 +638,7 @@ AST* parse_prefix_expr(PARSER* p) {
         expect(p, TK_PAREN_R);
         AST* e = ast_new(AST_INT_LIT_EXPR);
         e->int_value = type_sizeof(ty);
+        e->ty = type_new(TY_INT);
         return e;
     }
     return parse_postfix_expr(p);
@@ -599,6 +652,7 @@ AST* parse_multiplicative_expr(PARSER* p) {
             next_token(p);
             AST* rhs = parse_prefix_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = type_new(TY_INT);
         } else {
             break;
         }
@@ -610,10 +664,30 @@ AST* parse_additive_expr(PARSER* p) {
     AST* lhs = parse_multiplicative_expr(p);
     while (1) {
         int op = peek_token(p)->kind;
-        if (op == TK_PLUS || op == TK_MINUS) {
+        if (op == TK_PLUS) {
             next_token(p);
             AST* rhs = parse_multiplicative_expr(p);
+            TYPE* result_type;
+            if (lhs->ty->kind == TY_PTR) {
+                result_type = lhs->ty;
+            } else if (rhs->ty->kind == TY_PTR) {
+                result_type = rhs->ty;
+            } else {
+                result_type = type_new(TY_INT);
+            }
             lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = result_type;
+        } else if (op == TK_MINUS) {
+            next_token(p);
+            AST* rhs = parse_multiplicative_expr(p);
+            TYPE* result_type;
+            if (lhs->ty->kind == TY_PTR) {
+                result_type = lhs->ty;
+            } else {
+                result_type = type_new(TY_INT);
+            }
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = result_type;
         } else {
             break;
         }
@@ -629,14 +703,17 @@ AST* parse_relational_expr(PARSER* p) {
             next_token(p);
             AST* rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = type_new(TY_INT);
         } else if (op == TK_GT) {
             next_token(p);
             AST* rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(TK_LT, rhs, lhs);
+            lhs->ty = type_new(TY_INT);
         } else if (op == TK_GE) {
             next_token(p);
             AST* rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(TK_GE, rhs, lhs);
+            lhs->ty = type_new(TY_INT);
         } else {
             break;
         }
@@ -652,6 +729,7 @@ AST* parse_equality_expr(PARSER* p) {
             next_token(p);
             AST* rhs = parse_relational_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = type_new(TY_INT);
         } else {
             break;
         }
@@ -667,6 +745,8 @@ AST* parse_assignment_expr(PARSER *p) {
             next_token(p);
             AST* rhs = parse_equality_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
+            // TODO: support type coercion?
+            lhs->ty = rhs->ty;
         } else {
             break;
         }
@@ -749,12 +829,13 @@ AST* parse_var_decl(PARSER* p) {
     decl->ty = ty;
     decl->name = name;
 
-    if (parse_find_lvar(p, name) != -1) {
+    if (find_lvar(p, name) != -1) {
         char buf[1024];
         sprintf(buf, "parse_var_decl: %s redeclared", name);
         fatal_error(buf);
     }
     p->locals[p->n_locals].name = name;
+    p->locals[p->n_locals].ty = ty;
     p->n_locals += 1;
 
     return decl;
@@ -801,18 +882,25 @@ AST* parse_stmt(PARSER* p) {
     }
 }
 
-void parse_enter_func(PARSER* p) {
+void enter_func(PARSER* p) {
     p->locals = calloc(LVAR_MAX, sizeof(LVAR));
     p->n_locals = 0;
 }
 
-void parse_register_params(PARSER* p, AST* params) {
+void register_params(PARSER* p, AST* params) {
     AST* param = params->next;
     while (param) {
         p->locals[p->n_locals].name = param->name;
+        p->locals[p->n_locals].ty = param->ty;
         p->n_locals += 1;
         param = param->next;
     }
+}
+
+void register_func(PARSER* p, char* name, TYPE* ty) {
+    p->funcs[p->n_funcs].name = name;
+    p->funcs[p->n_funcs].ty = ty;
+    p->n_funcs += 1;
 }
 
 AST* parse_param(PARSER* p) {
@@ -845,7 +933,8 @@ AST* parse_param_list(PARSER* p) {
 
 AST* parse_func_decl_or_def(PARSER* p) {
     TYPE* ty = parse_type(p);
-    TOKEN* name = expect(p, TK_IDENT);
+    char* name = parse_ident(p);
+    register_func(p, name, ty);
     expect(p, TK_PAREN_L);
     AST* params = parse_param_list(p);
     expect(p, TK_PAREN_R);
@@ -853,12 +942,12 @@ AST* parse_func_decl_or_def(PARSER* p) {
         next_token(p);
         return ast_new(AST_FUNC_DECL);
     }
-    parse_enter_func(p);
-    parse_register_params(p, params);
+    enter_func(p);
+    register_params(p, params);
     AST* body = parse_block_stmt(p);
     AST* func = ast_new(AST_FUNC_DEF);
     func->ty = ty;
-    func->name = name->value;
+    func->name = name;
     func->func_params = params;
     func->func_body = body;
     return func;
@@ -999,9 +1088,25 @@ void gen_binary_expr(CODEGEN* g, AST* ast, int gen_mode) {
     printf("  pop rdi\n");
     printf("  pop rax\n");
     if (ast->op == TK_PLUS) {
-        printf("  add rax, rdi\n");
+        if (ast->expr1->ty->kind == TY_PTR) {
+            printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr1->ty));
+            printf("  add rax, rdi\n");
+        } else if (ast->expr2->ty->kind == TY_PTR) {
+            printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr2->ty));
+            printf("  add rax, rdi\n");
+        } else {
+            printf("  add rax, rdi\n");
+        }
     } else if (ast->op == TK_MINUS) {
-        printf("  sub rax, rdi\n");
+        if (ast->expr2->ty->kind == TY_PTR) {
+            printf("  sub rax, rdi\n");
+            printf("  shr rax, %d\n", type_ptr_shift_width(ast->expr2->ty));
+        } else if (ast->expr1->ty->kind == TY_PTR) {
+            printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr2->ty));
+            printf("  sub rax, rdi\n");
+        } else {
+            printf("  sub rax, rdi\n");
+        }
     } else if (ast->op == TK_STAR) {
         printf("  imul rax, rdi\n");
     } else if (ast->op == TK_SLASH) {
