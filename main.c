@@ -883,6 +883,12 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
         struct AstNode* e = ast_new_binary_expr(op, lhs, operand);
         e->ty = type_new(TY_INT);
         return e;
+    } else if (op == TK_NOT) {
+        next_token(p);
+        struct AstNode* operand = parse_prefix_expr(p);
+        struct AstNode* e = ast_new_unary_expr(op, operand);
+        e->ty = type_new(TY_INT);
+        return e;
     } else if (op == TK_AND) {
         next_token(p);
         struct AstNode* operand = parse_prefix_expr(p);
@@ -1439,7 +1445,17 @@ void gen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
     assert_ast_kind(ast, AST_UNARY_EXPR);
     printf("  # gen_unary_expr\n");
 
-    todo();
+    gen_expr(g, ast->expr1, GEN_RVAL);
+    if (ast->op == TK_NOT) {
+        printf("  pop rax\n");
+        printf("  mov rdi, 0\n");
+        printf("  cmp rax, rdi\n");
+        printf("  sete al\n");
+        printf("  movzb rax, al\n");
+        printf("  push rax\n");
+    } else {
+        todo();
+    }
 }
 
 void gen_ref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
