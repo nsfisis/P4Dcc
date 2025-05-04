@@ -350,7 +350,7 @@ struct AstNode;
 struct Type {
     int kind;
     struct Type* to;
-    struct AstNode* members;
+    struct AstNode* struct_def;
 };
 
 struct Type* type_new(int kind) {
@@ -521,7 +521,7 @@ int type_sizeof_struct(struct Type* ty) {
     int next_offset = 0;
     int struct_align = 0;
 
-    struct AstNode* member = ty->members->next;
+    struct AstNode* member = ty->struct_def->node1->next;
     for (0; member; 0) {
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
@@ -547,7 +547,7 @@ int type_sizeof_struct(struct Type* ty) {
 int type_alignof_struct(struct Type* ty) {
     int struct_align = 0;
 
-    struct AstNode* member = ty->members->next;
+    struct AstNode* member = ty->struct_def->node1->next;
     for (0; member; 0) {
         int align = type_alignof(member->ty);
 
@@ -567,7 +567,7 @@ int type_offsetof(struct Type* ty, char* name) {
 
     int next_offset = 0;
 
-    struct AstNode* member = ty->members->next;
+    struct AstNode* member = ty->struct_def->node1->next;
     for (0; member; 0) {
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
@@ -592,7 +592,7 @@ struct Type* type_member_typeof(struct Type* ty, char* name) {
         fatal_error("type_offsetof: type is not a struct");
     }
 
-    struct AstNode* member = ty->members->next;
+    struct AstNode* member = ty->struct_def->node1->next;
     for (0; member; 0) {
         if (strcmp(member->name, name) == 0) {
             return member->ty;
@@ -856,7 +856,7 @@ struct Type* parse_type(struct Parser* p) {
             sprintf(buf, "parse_type: unknown struct, %s", name);
             fatal_error(buf);
         }
-        ty->members = p->structs[struct_index].node1;
+        ty->struct_def = p->structs + struct_index;
     } else {
         fatal_error("unreachable");
     }
@@ -1308,6 +1308,7 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
         }
     }
     if (struct_index == p->n_structs) {
+        p->structs[struct_index].kind = AST_STRUCT_DEF;
         p->structs[struct_index].name = name;
         p->n_structs = p->n_structs + 1;
     }
@@ -1324,11 +1325,8 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     struct AstNode* members = parse_struct_members(p);
     expect(p, TK_BRACE_R);
     expect(p, TK_SEMICOLON);
-    struct AstNode* s = ast_new(AST_STRUCT_DEF);
-    s->name = name;
-    s->node1 = members;
     p->structs[struct_index].node1 = members;
-    return s;
+    return p->structs + struct_index;
 }
 
 struct AstNode* parse_toplevel(struct Parser* p) {
