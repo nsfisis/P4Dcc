@@ -212,7 +212,7 @@ TOKEN* tokenize(char* src, int len) {
             tok += 1;
         } else if (isalpha(c)) {
             int start = pos;
-            while (isalnum(src[pos])) {
+            while (isalnum(src[pos]) || src[pos] == '_') {
                 pos += 1;
             }
             if (strstr(src + start, "break") == src + start) {
@@ -1379,10 +1379,11 @@ int main() {
     TOKEN* tokens = tokenize(source, source_len);
 
     // for (int i = 0; tokens[i].kind != TK_EOF; i++) {
-    //     for (int j = 0; j < tokens[i].len; j++) {
-    //         putchar(tokens[i].value[j]);
+    //     if (tokens[i].value) {
+    //         printf("%s\n", tokens[i].value);
+    //     } else {
+    //         printf("(%d)\n", tokens[i].kind);
     //     }
-    //     printf("\n");
     // }
 
     PARSER* parser = parser_new(tokens);
