@@ -649,29 +649,36 @@ AST* parse_continue_stmt(PARSER* p) {
     return ast_new(AST_CONTINUE_STMT);
 }
 
-AST* parse_var_decl(PARSER* p) {
-    TOKEN* t = peek_token(p);
-    if (t->kind == TK_K_INT) {
-        next_token(p);
-        TYPE* ty = type_new(TK_K_INT);
-        char* name = parse_ident(p);
-        AST* decl = ast_new(AST_VAR_DECL);
-        expect(p, TK_SEMICOLON);
-        decl->var_ty = ty;
-        decl->name = name;
+int is_type_token(int token_kind) {
+    return token_kind == TK_K_INT;
+}
 
-        if (parse_find_lvar(p, name) != -1) {
-            char buf[1024];
-            sprintf(buf, "parse_var_decl: %s redeclared", name);
-            fatal_error(buf);
-        }
-        p->locals[p->n_locals].name = name;
-        p->n_locals += 1;
-
-        return decl;
-    } else {
-        fatal_error("parse_var_decl: unknown type");
+TYPE* parse_type(PARSER* p) {
+    TOKEN* t = next_token(p);
+    if (!is_type_token(t->kind)) {
+        fatal_error("parse_type: unknown type");
     }
+    TYPE* ty = type_new(TK_K_INT);
+    return ty;
+}
+
+AST* parse_var_decl(PARSER* p) {
+    TYPE* ty = parse_type(p);
+    char* name = parse_ident(p);
+    AST* decl = ast_new(AST_VAR_DECL);
+    expect(p, TK_SEMICOLON);
+    decl->var_ty = ty;
+    decl->name = name;
+
+    if (parse_find_lvar(p, name) != -1) {
+        char buf[1024];
+        sprintf(buf, "parse_var_decl: %s redeclared", name);
+        fatal_error(buf);
+    }
+    p->locals[p->n_locals].name = name;
+    p->n_locals += 1;
+
+    return decl;
 }
 
 AST* parse_expr_stmt(PARSER* p) {
@@ -706,10 +713,10 @@ AST* parse_stmt(PARSER* p) {
         return parse_break_stmt(p);
     } else if (t->kind == TK_K_CONTINUE) {
         return parse_continue_stmt(p);
-    } else if (t->kind == TK_K_INT) {
-        return parse_var_decl(p);
     } else if (t->kind == TK_BRACE_L) {
         return parse_block_stmt(p);
+    } else if (is_type_token(t->kind)) {
+        return parse_var_decl(p);
     } else {
         return parse_expr_stmt(p);
     }
@@ -730,17 +737,12 @@ void parse_register_params(PARSER* p, AST* params) {
 }
 
 AST* parse_param(PARSER* p) {
-    TOKEN* t = peek_token(p);
-    if (t->kind == TK_K_INT) {
-        next_token(p);
-        char* name = parse_ident(p);
-        AST* param = ast_new(AST_PARAM);
-        param->var_ty = type_new(TY_INT);
-        param->name = name;
-        return param;
-    } else {
-        fatal_error("parse_param: expect type");
-    }
+    TYPE* ty = parse_type(p);
+    char* name = parse_ident(p);
+    AST* param = ast_new(AST_PARAM);
+    param->var_ty = ty;
+    param->name = name;
+    return param;
 }
 
 AST* parse_param_list(PARSER* p) {
@@ -760,28 +762,23 @@ AST* parse_param_list(PARSER* p) {
 }
 
 AST* parse_func_decl_or_def(PARSER* p) {
-    TOKEN* t = peek_token(p);
-    if (t->kind == TK_K_INT) {
+    TYPE* ty = parse_type(p);
+    TOKEN* name = expect(p, TK_IDENT);
+    expect(p, TK_PAREN_L);
+    AST* params = parse_param_list(p);
+    expect(p, TK_PAREN_R);
+    if (peek_token(p)->kind == TK_SEMICOLON) {
         next_token(p);
-        TOKEN* name = expect(p, TK_IDENT);
-        expect(p, TK_PAREN_L);
-        AST* params = parse_param_list(p);
-        expect(p, TK_PAREN_R);
-        if (peek_token(p)->kind == TK_SEMICOLON) {
-            next_token(p);
-            return ast_new(AST_FUNC_DECL);
-        }
-        parse_enter_func(p);
-        parse_register_params(p, params);
-        AST* body = parse_block_stmt(p);
-        AST* func = ast_new(AST_FUNC_DEF);
-        func->name = name->value;
-        func->func_params = params;
-        func->func_body = body;
-        return func;
-    } else {
-        fatal_error("parse_func_decl_or_def: expect type");
+        return ast_new(AST_FUNC_DECL);
     }
+    parse_enter_func(p);
+    parse_register_params(p, params);
+    AST* body = parse_block_stmt(p);
+    AST* func = ast_new(AST_FUNC_DEF);
+    func->name = name->value;
+    func->func_params = params;
+    func->func_body = body;
+    return func;
 }
 
 AST* parse_toplevel(PARSER* p) {
