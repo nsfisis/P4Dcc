@@ -965,7 +965,7 @@ struct AstNode* parse_relational_expr(struct Parser* p) {
         } else if (op == TK_GE) {
             next_token(p);
             struct AstNode* rhs = parse_additive_expr(p);
-            lhs = ast_new_binary_expr(TK_GE, rhs, lhs);
+            lhs = ast_new_binary_expr(TK_LE, rhs, lhs);
             lhs->ty = type_new(TY_INT);
         } else {
             break;
