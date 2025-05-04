@@ -22,7 +22,11 @@ void fatal_error(char* msg) {
 int read_all(char* buf) {
     int c;
     int n = 0;
-    for (0; (c = getchar()) != -1; 0) {
+    for (0; 1; 0) {
+        c = getchar();
+        if (c == -1) {
+            break;
+        }
         buf[n] = c;
         n = n + 1;
     }
