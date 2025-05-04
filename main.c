@@ -37,42 +37,43 @@ int read_all(char* buf) {
 
 #define TK_EOF        0
 
-#define TK_ASSIGN     1
-#define TK_BRACE_L    2
-#define TK_BRACE_R    3
-#define TK_BRACKET_L  4
-#define TK_BRACKET_R  5
-#define TK_COMMA      6
-#define TK_EQ         7
-#define TK_GE         8
-#define TK_GT         9
-#define TK_IDENT      10
-#define TK_K_BREAK    11
-#define TK_K_CHAR     12
-#define TK_K_CONTINUE 13
-#define TK_K_ELSE     14
-#define TK_K_FOR      15
-#define TK_K_IF       16
-#define TK_K_INT      17
-#define TK_K_LONG     18
-#define TK_K_RETURN   19
-#define TK_K_SIZEOF   20
-#define TK_K_STRUCT   21
-#define TK_K_VOID     22
-#define TK_LE         23
-#define TK_LT         24
-#define TK_L_INT      25
-#define TK_L_STR      26
-#define TK_MINUS      27
-#define TK_NE         28
-#define TK_NOT        29
-#define TK_PAREN_L    30
-#define TK_PAREN_R    31
-#define TK_PERCENT    32
-#define TK_PLUS       33
-#define TK_SEMICOLON  34
-#define TK_SLASH      35
-#define TK_STAR       36
+#define TK_AND        1
+#define TK_ASSIGN     2
+#define TK_BRACE_L    3
+#define TK_BRACE_R    4
+#define TK_BRACKET_L  5
+#define TK_BRACKET_R  6
+#define TK_COMMA      7
+#define TK_EQ         8
+#define TK_GE         9
+#define TK_GT         10
+#define TK_IDENT      11
+#define TK_K_BREAK    12
+#define TK_K_CHAR     13
+#define TK_K_CONTINUE 14
+#define TK_K_ELSE     15
+#define TK_K_FOR      16
+#define TK_K_IF       17
+#define TK_K_INT      18
+#define TK_K_LONG     19
+#define TK_K_RETURN   20
+#define TK_K_SIZEOF   21
+#define TK_K_STRUCT   22
+#define TK_K_VOID     23
+#define TK_LE         24
+#define TK_LT         25
+#define TK_L_INT      26
+#define TK_L_STR      27
+#define TK_MINUS      28
+#define TK_NE         29
+#define TK_NOT        30
+#define TK_PAREN_L    31
+#define TK_PAREN_R    32
+#define TK_PERCENT    33
+#define TK_PLUS       34
+#define TK_SEMICOLON  35
+#define TK_SLASH      36
+#define TK_STAR       37
 
 typedef struct Token {
     int kind;
@@ -120,6 +121,10 @@ TOKEN* tokenize(char* src, int len) {
         } else if (c == '+') {
             pos += 1;
             tok->kind = TK_PLUS;
+            tok += 1;
+        } else if (c == '&') {
+            pos += 1;
+            tok->kind = TK_AND;
             tok += 1;
         } else if (c == '-') {
             pos += 1;
@@ -511,6 +516,10 @@ AST* parse_prefix_expr(PARSER* p) {
         AST* lhs = ast_new(AST_INT_LIT_EXPR);
         lhs->int_value = 0;
         return ast_new_binary_expr(op, lhs, operand);
+    } else if (op == TK_AND || op == TK_STAR) {
+        next_token(p);
+        AST* operand = parse_prefix_expr(p);
+        return ast_new_unary_expr(op, operand);
     }
     return parse_postfix_expr(p);
 }
@@ -918,19 +927,31 @@ void gen_str_lit_expr(CODEGEN* g, AST* ast) {
     printf("  push rax\n");
 }
 
-void gen_unary_expr(CODEGEN* g, AST* ast) {
+void gen_unary_expr(CODEGEN* g, AST* ast, int gen_mode) {
     assert_ast_kind(ast, AST_UNARY_EXPR);
     printf("  # gen_unary_expr\n");
 
-    fatal_error("gen_unary_expr: unimplemented");
+    if (ast->op == TK_AND) {
+        gen_expr(g, ast->expr1, GEN_LVAL);
+    } else if (ast->op == TK_STAR) {
+        if (gen_mode == GEN_LVAL) {
+            gen_expr(g, ast->expr1, GEN_RVAL);
+        } else {
+            gen_expr(g, ast->expr1, GEN_RVAL);
+            printf("  pop rax\n");
+            printf("  push [rax]\n");
+        }
+    } else {
+        todo();
+    }
 }
 
-void gen_binary_expr(CODEGEN* g, AST* ast) {
+void gen_binary_expr(CODEGEN* g, AST* ast, int gen_mode) {
     assert_ast_kind(ast, AST_BINARY_EXPR);
     printf("  # gen_binary_expr\n");
 
-    gen_expr(g, ast->expr1, GEN_RVAL);
-    gen_expr(g, ast->expr2, GEN_RVAL);
+    gen_expr(g, ast->expr1, gen_mode);
+    gen_expr(g, ast->expr2, gen_mode);
     printf("  pop rdi\n");
     printf("  pop rax\n");
     if (ast->op == TK_PLUS) {
@@ -1040,9 +1061,9 @@ void gen_expr(CODEGEN* g, AST* ast, int gen_mode) {
     } else if (ast->kind == AST_STR_LIT_EXPR) {
         gen_str_lit_expr(g, ast);
     } else if (ast->kind == AST_UNARY_EXPR) {
-        gen_unary_expr(g, ast);
+        gen_unary_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_BINARY_EXPR) {
-        gen_binary_expr(g, ast);
+        gen_binary_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_ASSIGN_EXPR) {
         gen_assign_expr(g, ast);
     } else if (ast->kind == AST_FUNC_CALL) {
