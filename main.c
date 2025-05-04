@@ -333,6 +333,9 @@ int type_is_unsized_type(TYPE* ty) {
     return ty->kind != TY_VOID;
 }
 
+int type_sizeof_struct(TYPE* ty);
+int type_alignof_struct(TYPE* ty);
+
 int type_sizeof(TYPE* ty) {
     if (!type_is_unsized_type(ty)) {
         fatal_error("type_sizeof: type size cannot be determined");
@@ -347,7 +350,25 @@ int type_sizeof(TYPE* ty) {
     } else if (ty->kind == TY_LONG) {
         return 8;
     } else {
-        todo();
+        return type_sizeof_struct(ty);
+    }
+}
+
+int type_alignof(TYPE* ty) {
+    if (!type_is_unsized_type(ty)) {
+        fatal_error("type_alignof: type size cannot be determined");
+    }
+
+    if (ty->kind == TY_PTR) {
+        return 8;
+    } else if (ty->kind == TY_CHAR) {
+        return 1;
+    } else if (ty->kind == TY_INT) {
+        return 4;
+    } else if (ty->kind == TY_LONG) {
+        return 8;
+    } else {
+        return type_alignof_struct(ty);
     }
 }
 
@@ -456,6 +477,38 @@ AST* ast_new_assign_expr(int op, AST* lhs, AST* rhs) {
     e->expr1 = lhs;
     e->expr2 = rhs;
     return e;
+}
+
+int type_sizeof_struct(TYPE* ty) {
+    int next_offset = 0;
+    int struct_align = 0;
+
+    AST* member = ty->members->next;
+    while (member) {
+        int size = type_sizeof(member->ty);
+        int align = type_alignof(member->ty);
+
+        if (next_offset % align != 0) {
+            int padding = align - next_offset % align;
+            next_offset += padding;
+        }
+        next_offset += size;
+        if (struct_align < align) {
+            struct_align = align;
+        }
+
+        member = member->next;
+    }
+    if (next_offset % struct_align != 0) {
+        int padding = struct_align - next_offset % struct_align;
+        next_offset += padding;
+    }
+    return next_offset;
+}
+
+int type_alignof_struct(TYPE* ty) {
+    todo();
+    return 0;
 }
 
 #define LVAR_MAX 32
@@ -981,11 +1034,24 @@ AST* parse_struct_members(PARSER* p) {
 AST* parse_struct_decl_or_def(PARSER* p) {
     expect(p, TK_K_STRUCT);
     char* name = parse_ident(p);
-    p->structs[p->n_structs].name = name;
-    p->n_structs += 1;
+    int struct_index;
+    for (struct_index = 0; struct_index < p->n_structs; struct_index++) {
+        if (strcmp(name, p->structs[struct_index].name) == 0) {
+            break;
+        }
+    }
+    if (struct_index == p->n_structs) {
+        p->structs[struct_index].name = name;
+        p->n_structs += 1;
+    }
     if (peek_token(p)->kind == TK_SEMICOLON) {
         next_token(p);
         return ast_new(AST_STRUCT_DECL);
+    }
+    if (p->structs[struct_index].node1) {
+        char buf[1024];
+        sprintf(buf, "parse_struct_decl_or_def: struct %s redefined", name);
+        fatal_error(buf);
     }
     expect(p, TK_BRACE_L);
     AST* members = parse_struct_members(p);
@@ -994,7 +1060,7 @@ AST* parse_struct_decl_or_def(PARSER* p) {
     AST* s = ast_new(AST_STRUCT_DEF);
     s->name = name;
     s->node1 = members;
-    p->structs[p->n_structs - 1].node1 = members;
+    p->structs[struct_index].node1 = members;
     return s;
 }
 
