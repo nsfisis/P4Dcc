@@ -11,7 +11,7 @@ build N="1":
         gcc -s -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
     fi
 
-build-upto-10:
+build-upto-10-gen:
     just build 1
     just build 2
     just build 3
@@ -23,7 +23,7 @@ build-upto-10:
     just build 9
     just build 10
 
-test-self-hosted:
+test-self-hosted: build-upto-10-gen
     diff -u ./p4dcc2 ./p4dcc3
     diff -u ./p4dcc3 ./p4dcc4
     diff -u ./p4dcc4 ./p4dcc5
@@ -41,8 +41,21 @@ test TESTCASE="all" $BIN="p4dcc": build
         bash tests/run.sh {{TESTCASE}}
     fi
     if [[ $BIN = p4dcc ]]; then
-        just build2
+        just build 2
     fi
+
+test-all:
+    just test-self-hosted
+    just test all p4dcc
+    just test all p4dcc2
+    just test all p4dcc3
+    just test all p4dcc4
+    just test all p4dcc5
+    just test all p4dcc6
+    just test all p4dcc7
+    just test all p4dcc8
+    just test all p4dcc9
+    just test all p4dcc10
 
 clean:
     rm p4dcc*
