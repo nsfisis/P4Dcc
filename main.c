@@ -279,8 +279,26 @@ TYPE* type_new_ptr(TYPE* to) {
     return ty;
 }
 
-int type_is_valid_for_var(TYPE* ty) {
+int type_is_unsized_type(TYPE* ty) {
     return ty->kind != TY_VOID;
+}
+
+int type_sizeof(TYPE* ty) {
+    if (!type_is_unsized_type(ty)) {
+        fatal_error("type_sizeof: type size cannot be determined");
+    }
+
+    if (ty->kind == TY_PTR) {
+        return 8;
+    } else if (ty->kind == TY_CHAR) {
+        return 1;
+    } else if (ty->kind == TY_INT) {
+        return 4;
+    } else if (ty->kind == TY_LONG) {
+        return 8;
+    } else {
+        todo();
+    }
 }
 
 #define AST_UNKNOWN       0
@@ -510,6 +528,37 @@ AST* parse_postfix_expr(PARSER* p) {
     return ret;
 }
 
+int is_type_token(int token_kind) {
+    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID;
+}
+
+TYPE* parse_type(PARSER* p) {
+    TOKEN* t = next_token(p);
+    if (!is_type_token(t->kind)) {
+        fatal_error("parse_type: unknown type");
+    }
+    TYPE* ty = type_new(TY_UNKNOWN);
+    if (t->kind == TK_K_INT) {
+        ty->kind = TY_INT;
+    } else if (t->kind == TK_K_LONG) {
+        ty->kind = TY_LONG;
+    } else if (t->kind == TK_K_CHAR) {
+        ty->kind = TY_CHAR;
+    } else if (t->kind == TK_K_VOID) {
+        ty->kind = TY_VOID;
+    }
+    while (1) {
+        TOKEN* t2 = peek_token(p);
+        if (t2->kind == TK_STAR) {
+            next_token(p);
+            ty = type_new_ptr(ty);
+        } else {
+            break;
+        }
+    }
+    return ty;
+}
+
 AST* parse_prefix_expr(PARSER* p) {
     int op = peek_token(p)->kind;
     if (op == TK_MINUS) {
@@ -529,6 +578,14 @@ AST* parse_prefix_expr(PARSER* p) {
         AST* operand = parse_prefix_expr(p);
         AST* e = ast_new(AST_DEREF_EXPR);
         e->expr1 = operand;
+        return e;
+    } else if (op == TK_K_SIZEOF) {
+        next_token(p);
+        expect(p, TK_PAREN_L);
+        TYPE* ty = parse_type(p);
+        expect(p, TK_PAREN_R);
+        AST* e = ast_new(AST_INT_LIT_EXPR);
+        e->int_value = type_sizeof(ty);
         return e;
     }
     return parse_postfix_expr(p);
@@ -681,40 +738,9 @@ AST* parse_continue_stmt(PARSER* p) {
     return ast_new(AST_CONTINUE_STMT);
 }
 
-int is_type_token(int token_kind) {
-    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID;
-}
-
-TYPE* parse_type(PARSER* p) {
-    TOKEN* t = next_token(p);
-    if (!is_type_token(t->kind)) {
-        fatal_error("parse_type: unknown type");
-    }
-    TYPE* ty = type_new(TY_UNKNOWN);
-    if (t->kind == TK_K_INT) {
-        ty->kind = TY_INT;
-    } else if (t->kind == TK_K_LONG) {
-        ty->kind = TY_LONG;
-    } else if (t->kind == TK_K_CHAR) {
-        ty->kind = TY_CHAR;
-    } else if (t->kind == TK_K_VOID) {
-        ty->kind = TY_VOID;
-    }
-    while (1) {
-        TOKEN* t2 = peek_token(p);
-        if (t2->kind == TK_STAR) {
-            next_token(p);
-            ty = type_new_ptr(ty);
-        } else {
-            break;
-        }
-    }
-    return ty;
-}
-
 AST* parse_var_decl(PARSER* p) {
     TYPE* ty = parse_type(p);
-    if (!type_is_valid_for_var(ty)) {
+    if (!type_is_unsized_type(ty)) {
         fatal_error("parse_var_decl: invalid type for variable");
     }
     char* name = parse_ident(p);
@@ -791,7 +817,7 @@ void parse_register_params(PARSER* p, AST* params) {
 
 AST* parse_param(PARSER* p) {
     TYPE* ty = parse_type(p);
-    if (!type_is_valid_for_var(ty)) {
+    if (!type_is_unsized_type(ty)) {
         fatal_error("parse_param: invalid type for variable");
     }
     char* name = parse_ident(p);
