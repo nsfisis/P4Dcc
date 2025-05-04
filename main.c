@@ -40,42 +40,44 @@ int read_all(char* buf) {
 #define TK_EOF        0
 
 #define TK_AND        1
-#define TK_ASSIGN     2
-#define TK_BRACE_L    3
-#define TK_BRACE_R    4
-#define TK_BRACKET_L  5
-#define TK_BRACKET_R  6
-#define TK_COMMA      7
-#define TK_EQ         8
-#define TK_GE         9
-#define TK_GT         10
-#define TK_IDENT      11
-#define TK_K_BREAK    12
-#define TK_K_CHAR     13
-#define TK_K_CONTINUE 14
-#define TK_K_ELSE     15
-#define TK_K_FOR      16
-#define TK_K_IF       17
-#define TK_K_INT      18
-#define TK_K_LONG     19
-#define TK_K_RETURN   20
-#define TK_K_SIZEOF   21
-#define TK_K_STRUCT   22
-#define TK_K_VOID     23
-#define TK_LE         24
-#define TK_LT         25
-#define TK_L_INT      26
-#define TK_L_STR      27
-#define TK_MINUS      28
-#define TK_NE         29
-#define TK_NOT        30
-#define TK_PAREN_L    31
-#define TK_PAREN_R    32
-#define TK_PERCENT    33
-#define TK_PLUS       34
-#define TK_SEMICOLON  35
-#define TK_SLASH      36
-#define TK_STAR       37
+#define TK_ARROW      2
+#define TK_ASSIGN     3
+#define TK_BRACE_L    4
+#define TK_BRACE_R    5
+#define TK_BRACKET_L  6
+#define TK_BRACKET_R  7
+#define TK_COMMA      8
+#define TK_DOT        9
+#define TK_EQ         10
+#define TK_GE         11
+#define TK_GT         12
+#define TK_IDENT      13
+#define TK_K_BREAK    14
+#define TK_K_CHAR     15
+#define TK_K_CONTINUE 16
+#define TK_K_ELSE     17
+#define TK_K_FOR      18
+#define TK_K_IF       19
+#define TK_K_INT      20
+#define TK_K_LONG     21
+#define TK_K_RETURN   22
+#define TK_K_SIZEOF   23
+#define TK_K_STRUCT   24
+#define TK_K_VOID     25
+#define TK_LE         26
+#define TK_LT         27
+#define TK_L_INT      28
+#define TK_L_STR      29
+#define TK_MINUS      30
+#define TK_NE         31
+#define TK_NOT        32
+#define TK_PAREN_L    33
+#define TK_PAREN_R    34
+#define TK_PERCENT    35
+#define TK_PLUS       36
+#define TK_SEMICOLON  37
+#define TK_SLASH      38
+#define TK_STAR       39
 
 typedef struct Token {
     int kind;
@@ -137,8 +139,14 @@ TOKEN* tokenize(char* src, int len) {
             tok += 1;
         } else if (c == '-') {
             pos += 1;
-            tok->kind = TK_MINUS;
-            tok += 1;
+            if (src[pos] == '>') {
+                pos += 1;
+                tok->kind = TK_ARROW;
+                tok += 1;
+            } else {
+                tok->kind = TK_MINUS;
+                tok += 1;
+            }
         } else if (c == '*') {
             pos += 1;
             tok->kind = TK_STAR;
@@ -150,6 +158,10 @@ TOKEN* tokenize(char* src, int len) {
         } else if (c == '%') {
             pos += 1;
             tok->kind = TK_PERCENT;
+            tok += 1;
+        } else if (c == '.') {
+            pos += 1;
+            tok->kind = TK_DOT;
             tok += 1;
         } else if (c == '!') {
             pos += 1;
@@ -408,19 +420,20 @@ int type_ptr_shift_width(TYPE* ty) {
 #define AST_IF_STMT            13
 #define AST_INT_LIT_EXPR       14
 #define AST_LVAR               15
-#define AST_PARAM              16
-#define AST_PARAM_LIST         17
-#define AST_PROGRAM            18
-#define AST_REF_EXPR           19
-#define AST_RETURN_STMT        20
-#define AST_STRUCT_DECL        21
-#define AST_STRUCT_DEF         22
+#define AST_OFFSETOF           16
+#define AST_PARAM              17
+#define AST_PARAM_LIST         18
+#define AST_PROGRAM            19
+#define AST_REF_EXPR           20
+#define AST_RETURN_STMT        21
+#define AST_STRUCT_DECL        22
+#define AST_STRUCT_DEF         23
 #define AST_STRUCT_MEMBER      24
-#define AST_STRUCT_MEMBER_LIST 26
-#define AST_STR_LIT_EXPR       28
-#define AST_TYPE               30
-#define AST_UNARY_EXPR         32
-#define AST_VAR_DECL           34
+#define AST_STRUCT_MEMBER_LIST 25
+#define AST_STR_LIT_EXPR       26
+#define AST_TYPE               27
+#define AST_UNARY_EXPR         28
+#define AST_VAR_DECL           29
 
 typedef struct AstNode {
     int kind;
@@ -507,8 +520,62 @@ int type_sizeof_struct(TYPE* ty) {
 }
 
 int type_alignof_struct(TYPE* ty) {
-    todo();
-    return 0;
+    int struct_align = 0;
+
+    AST* member = ty->members->next;
+    while (member) {
+        int align = type_alignof(member->ty);
+
+        if (struct_align < align) {
+            struct_align = align;
+        }
+
+        member = member->next;
+    }
+    return struct_align;
+}
+
+int type_offsetof(TYPE* ty, char* name) {
+    if (ty->kind != TY_STRUCT) {
+        fatal_error("type_offsetof: type is not a struct");
+    }
+
+    int next_offset = 0;
+
+    AST* member = ty->members->next;
+    while (member) {
+        int size = type_sizeof(member->ty);
+        int align = type_alignof(member->ty);
+
+        if (next_offset % align != 0) {
+            int padding = align - next_offset % align;
+            next_offset += padding;
+        }
+        if (strcmp(member->name, name) == 0) {
+            return next_offset;
+        }
+        next_offset += size;
+
+        member = member->next;
+    }
+
+    fatal_error("type_offsetof: member not found");
+}
+
+TYPE* type_member_typeof(TYPE* ty, char* name) {
+    if (ty->kind != TY_STRUCT) {
+        fatal_error("type_offsetof: type is not a struct");
+    }
+
+    AST* member = ty->members->next;
+    while (member) {
+        if (strcmp(member->name, name) == 0) {
+            return member->ty;
+        }
+        member = member->next;
+    }
+
+    fatal_error("type_offsetof: member not found");
 }
 
 #define LVAR_MAX 32
@@ -678,6 +745,41 @@ AST* parse_postfix_expr(PARSER* p) {
             AST* args = parse_arg_list(p);
             expect(p, TK_PAREN_R);
             ret->expr1 = args;
+        } else if (tk == TK_DOT) {
+            next_token(p);
+            char* name = parse_ident(p);
+
+            // a.b  ==  *(&a + offsetof(b))
+            AST* e = ast_new(AST_DEREF_EXPR);
+            AST* ref_of_ret = ast_new(AST_REF_EXPR);
+            ref_of_ret->expr1 = ret;
+            ref_of_ret->ty = type_new_ptr(ret->ty);
+            int offset = type_offsetof(ret->ty, name);
+            AST* offset_node = ast_new(AST_OFFSETOF);
+            offset_node->int_value = offset;
+            offset_node->ty = type_new(TY_INT);
+            AST* ptr_expr = ast_new_binary_expr(TK_PLUS, ref_of_ret, offset_node);
+            ptr_expr->ty = ref_of_ret->ty;
+            e->expr1 = ptr_expr;
+            e->ty = type_member_typeof(ret->ty, name);
+
+            ret = e;
+        } else if (tk == TK_ARROW) {
+            next_token(p);
+            char* name = parse_ident(p);
+
+            // a->b  ==  *(a + offsetof(b))
+            AST* e = ast_new(AST_DEREF_EXPR);
+            int offset = type_offsetof(ret->ty->to, name);
+            AST* offset_node = ast_new(AST_OFFSETOF);
+            offset_node->int_value = offset;
+            offset_node->ty = type_new(TY_INT);
+            AST* ptr_expr = ast_new_binary_expr(TK_PLUS, ret, offset_node);
+            ptr_expr->ty = ret->ty;
+            e->expr1 = ptr_expr;
+            e->ty = type_member_typeof(ret->ty->to, name);
+
+            ret = e;
         } else {
             break;
         }
@@ -1230,6 +1332,13 @@ void gen_int_lit_expr(CODEGEN* g, AST* ast) {
     printf("  push %d\n", ast->int_value);
 }
 
+void gen_offsetof(CODEGEN* g, AST* ast) {
+    assert_ast_kind(ast, AST_OFFSETOF);
+    printf("  # gen_offsetof\n");
+
+    printf("  push %d\n", ast->int_value);
+}
+
 void gen_str_lit_expr(CODEGEN* g, AST* ast) {
     assert_ast_kind(ast, AST_STR_LIT_EXPR);
     printf("  # gen_str_lit_expr\n");
@@ -1275,10 +1384,14 @@ void gen_binary_expr(CODEGEN* g, AST* ast, int gen_mode) {
     printf("  pop rax\n");
     if (ast->op == TK_PLUS) {
         if (ast->expr1->ty->kind == TY_PTR) {
-            printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr1->ty));
+            if (ast->expr2->kind != AST_OFFSETOF) {
+                printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr1->ty));
+            }
             printf("  add rax, rdi\n");
         } else if (ast->expr2->ty->kind == TY_PTR) {
-            printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr2->ty));
+            if (ast->expr1->kind != AST_OFFSETOF) {
+                printf("  shl rdi, %d\n", type_ptr_shift_width(ast->expr2->ty));
+            }
             printf("  add rax, rdi\n");
         } else {
             printf("  add rax, rdi\n");
@@ -1393,6 +1506,8 @@ void gen_lvar(CODEGEN* g, AST* ast, int gen_mode) {
 void gen_expr(CODEGEN* g, AST* ast, int gen_mode) {
     if (ast->kind == AST_INT_LIT_EXPR) {
         gen_int_lit_expr(g, ast);
+    } else if (ast->kind == AST_OFFSETOF) {
+        gen_offsetof(g, ast);
     } else if (ast->kind == AST_STR_LIT_EXPR) {
         gen_str_lit_expr(g, ast);
     } else if (ast->kind == AST_UNARY_EXPR) {
