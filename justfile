@@ -11,9 +11,27 @@ build N="1":
         gcc -s -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
     fi
 
-build N: build
-    ./p4dcc < main.c > main{{N}}.s
-    gcc -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
+build-upto-10:
+    just build 1
+    just build 2
+    just build 3
+    just build 4
+    just build 5
+    just build 6
+    just build 7
+    just build 8
+    just build 9
+    just build 10
+
+test-self-hosted:
+    diff -u ./p4dcc2 ./p4dcc3
+    diff -u ./p4dcc3 ./p4dcc4
+    diff -u ./p4dcc4 ./p4dcc5
+    diff -u ./p4dcc5 ./p4dcc6
+    diff -u ./p4dcc6 ./p4dcc7
+    diff -u ./p4dcc7 ./p4dcc8
+    diff -u ./p4dcc8 ./p4dcc9
+    diff -u ./p4dcc9 ./p4dcc10
 
 test TESTCASE="all" $BIN="p4dcc": build
     #!/usr/bin/env bash
