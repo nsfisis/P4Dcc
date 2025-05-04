@@ -1632,9 +1632,28 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
             fatal_error("gen_func_call: too many args");
         }
     }
+
+    int label = gen_new_label(g);
+
+    printf("  mov rax, rsp\n");
+    printf("  and rax, 15\n");
+    printf("  cmp rax, 0\n");
+    printf("  je .Laligned%d\n", label);
+
+    printf("  mov rax, 0\n");
+    printf("  sub rsp, 8\n");
+    printf("  call %s\n", func_name);
+    printf("  add rsp, 8\n");
+    printf("  push rax\n");
+
+    printf("  jmp .Lend%d\n", label);
+    printf(".Laligned%d:\n", label);
+
     printf("  mov rax, 0\n");
     printf("  call %s\n", func_name);
     printf("  push rax\n");
+
+    printf(".Lend%d:\n", label);
 }
 
 void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
