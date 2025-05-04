@@ -770,6 +770,18 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             struct AstNode* args = parse_arg_list(p);
             expect(p, TK_PAREN_R);
             ret->expr1 = args;
+        } else if (tk == TK_BRACKET_L) {
+            next_token(p);
+            struct AstNode* idx = parse_expr(p);
+            expect(p, TK_BRACKET_R);
+
+            struct AstNode* e = ast_new(AST_DEREF_EXPR);
+            struct AstNode* ptr_expr = ast_new_binary_expr(TK_PLUS, ret, idx);
+            ptr_expr->ty = ret->ty;
+            e->expr1 = ptr_expr;
+            e->ty = ret->ty->to;
+
+            ret = e;
         } else if (tk == TK_DOT) {
             next_token(p);
             char* name = parse_ident(p);
