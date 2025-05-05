@@ -511,6 +511,13 @@ struct AstNode* ast_new_assign_expr(int op, struct AstNode* lhs, struct AstNode*
     return e;
 }
 
+struct AstNode* ast_new_int_lit(int v) {
+    struct AstNode* e = ast_new(AST_INT_LIT_EXPR);
+    e->int_value = v;
+    e->ty = type_new(TY_INT);
+    return e;
+}
+
 int type_sizeof_struct(struct Type* ty) {
     int next_offset = 0;
     int struct_align = 0;
@@ -694,10 +701,7 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
     struct AstNode* e;
     char* buf;
     if (t->kind == TK_L_INT) {
-        e = ast_new(AST_INT_LIT_EXPR);
-        e->int_value = atoi(t->value);
-        e->ty = type_new(TY_INT);
-        return e;
+        return ast_new_int_lit(atoi(t->value));
     } else if (t->kind == TK_L_STR) {
         int str_lit_index = register_str_lit(p, t->value);
         e = ast_new(AST_STR_LIT_EXPR);
@@ -882,10 +886,7 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
     if (op == TK_MINUS) {
         next_token(p);
         operand = parse_prefix_expr(p);
-        struct AstNode* lhs = ast_new(AST_INT_LIT_EXPR);
-        lhs->int_value = 0;
-        lhs->ty = type_new(TY_INT);
-        e = ast_new_binary_expr(op, lhs, operand);
+        e = ast_new_binary_expr(op, ast_new_int_lit(0), operand);
         e->ty = type_new(TY_INT);
         return e;
     } else if (op == TK_NOT) {
@@ -913,10 +914,7 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
         expect(p, TK_PAREN_L);
         struct Type* ty = parse_type(p);
         expect(p, TK_PAREN_R);
-        e = ast_new(AST_INT_LIT_EXPR);
-        e->int_value = type_sizeof(ty);
-        e->ty = type_new(TY_INT);
-        return e;
+        return ast_new_int_lit(type_sizeof(ty));
     }
     return parse_postfix_expr(p);
 }
@@ -1114,9 +1112,7 @@ struct AstNode* parse_for_stmt(struct Parser* p) {
     if (peek_token(p)->kind != TK_SEMICOLON) {
         cond = parse_expr(p);
     } else {
-        cond = ast_new(AST_INT_LIT_EXPR);
-        cond->int_value = 1;
-        cond->ty = type_new(TY_INT);
+        cond = ast_new_int_lit(1);
     }
     expect(p, TK_SEMICOLON);
     if (peek_token(p)->kind != TK_PAREN_R) {
