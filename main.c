@@ -1752,6 +1752,7 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
 
     if (ast->expr1) {
         gen_expr(g, ast->expr1, GEN_RVAL);
+        printf("  pop rax\n");
     }
     printf(".Lbegin%d:\n", label);
     gen_expr(g, ast->expr2, GEN_RVAL);
