@@ -412,7 +412,7 @@ int type_alignof(struct Type* ty) {
 #define AST_VAR_DECL      25
 
 #define node_items     __n1
-#define node_len       ival
+#define node_len       __i
 #define node_expr      __n1
 #define node_lhs       __n1
 #define node_rhs       __n2
@@ -426,19 +426,19 @@ int type_alignof(struct Type* ty) {
 #define node_members   __n1
 #define node_params    __n1
 #define node_args      __n1
-#define node_int_value ival
-#define node_index     ival
-#define node_op        ival
+#define node_int_value __i
+#define node_index     __i
+#define node_op        __i
 
 struct AstNode {
     int kind;
     char* name;
-    int ival;
     struct Type* ty;
     struct AstNode* __n1;
     struct AstNode* __n2;
     struct AstNode* __n3;
     struct AstNode* __n4;
+    int __i;
 };
 
 struct Program {

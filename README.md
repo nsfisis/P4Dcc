@@ -1,8 +1,8 @@
 # P4Dcc
 
-P4Dcc is a tiny, but self-hosted C compiler. It takes C source code and compiles it to assembly language. For assembling and linking, I use gcc as-is.
+P4Dcc is a tiny, but self-hosted C compiler. It takes C source code and compiles it to assembly language. For assembling and linking, it deletegates to gcc as-is.
 
-This project was started to test the hypothesis: "Could a self-hostable C compiler be built in four days, if the feature set is carefully limited?" - "P4D" stands for the ISO 8601 notation meaning "four days." However, I actually completed the project by the morning of the third day.
+This project was started to prove the hypothesis: "Could a self-hostable C compiler be built in four days, if the feature set is carefully limited?" - "P4D" stands for the ISO 8601 notation meaning "four days." However, I actually completed the project by the morning of the third day.
 
 The code is written following the instructions at https://www.sigbus.info/compilerbook, and several key design decisions were inspired by the book.
 
@@ -32,7 +32,7 @@ $ just test-all  # test all things, including binary equiality between generatio
 
 To meet the four-day goal, many design decisions were made to reduce complexity (ideas directly taken from https://www.sigbus.info/compilerbook are not listed):
 
-* Simplify declaration syntax
+* Simplified declaration syntax
     * No support for `typedef`
         * Structs always begin with `struct` keyword
     * No support for array types
@@ -40,7 +40,7 @@ To meet the four-day goal, many design decisions were made to reduce complexity 
         * All arrays are heap-allocated and accessed via pointers
     * No support for function types
     * Type information always precede the variable name
-* Most syntax sugar is not implemented
+* Minimal syntax sugar
     * No increment/decrement operators
     * ~~No compound assignment operators~~
         * Implemented after self-hosting
