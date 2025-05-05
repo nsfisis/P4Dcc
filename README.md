@@ -47,7 +47,7 @@ To meet the four-day goal, many design decisions were made to reduce complexity 
     * ~~No `while`~~
         * Implemented after self-hosting
 * Limited preprocessor
-    * Supports only simple `#define` that replaces identifiers with integer literals
+    * Supports only simple `#define` that replaces identifiers with single integer or identifier
 * No global variables
     * Including `stdin`, `stdout`, and `stderr`
     * Only function/struct definitions/declarations are allowed at the top level

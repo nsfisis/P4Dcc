@@ -334,16 +334,29 @@ struct Token* tokenize(char* src, int len) {
                 pos += 1;
             }
             int start2 = pos;
-            while (isdigit(src[pos])) {
-                pos += 1;
+            int is_digit = isdigit(src[pos]);
+            if (is_digit) {
+                while (isdigit(src[pos])) {
+                    pos += 1;
+                }
+            } else {
+                while (isalnum(src[pos]) || src[pos] == '_') {
+                    pos += 1;
+                }
             }
             def->to = calloc(1, sizeof(struct Token));
-            def->to->kind = TK_L_INT;
+            if (is_digit) {
+                def->to->kind = TK_L_INT;
+            } else {
+                def->to->kind = TK_IDENT;
+            }
             def->to->value = calloc(pos - start2 + 1, sizeof(char));
             memcpy(def->to->value, src + start2, pos - start2);
             def += 1;
         } else {
-            fatal_error("unknown token");
+            char* buf = calloc(1024, sizeof(char));
+            sprintf(buf, "!!! %d", c);
+            fatal_error(buf);
         }
     }
     return tokens;
