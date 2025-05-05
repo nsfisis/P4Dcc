@@ -28,7 +28,7 @@ int read_all(char* buf) {
             break;
         }
         buf[n] = c;
-        n = n + 1;
+        n += 1;
     }
     return n;
 }
@@ -39,44 +39,46 @@ int read_all(char* buf) {
 #define TK_ANDAND     2
 #define TK_ARROW      3
 #define TK_ASSIGN     4
-#define TK_BRACE_L    5
-#define TK_BRACE_R    6
-#define TK_BRACKET_L  7
-#define TK_BRACKET_R  8
-#define TK_COMMA      9
-#define TK_DOT        10
-#define TK_EQ         11
-#define TK_GE         12
-#define TK_GT         13
-#define TK_IDENT      14
-#define TK_K_BREAK    15
-#define TK_K_CHAR     16
-#define TK_K_CONTINUE 17
-#define TK_K_ELSE     18
-#define TK_K_FOR      19
-#define TK_K_IF       20
-#define TK_K_INT      21
-#define TK_K_LONG     22
-#define TK_K_RETURN   23
-#define TK_K_SIZEOF   24
-#define TK_K_STRUCT   25
-#define TK_K_VOID     26
-#define TK_K_WHILE    27
-#define TK_LE         28
-#define TK_LT         29
-#define TK_L_INT      30
-#define TK_L_STR      31
-#define TK_MINUS      32
-#define TK_NE         33
-#define TK_NOT        34
-#define TK_OROR       35
-#define TK_PAREN_L    36
-#define TK_PAREN_R    37
-#define TK_PERCENT    38
-#define TK_PLUS       39
-#define TK_SEMICOLON  40
-#define TK_SLASH      41
-#define TK_STAR       42
+#define TK_ASSIGN_ADD 5
+#define TK_ASSIGN_SUB 6
+#define TK_BRACE_L    7
+#define TK_BRACE_R    8
+#define TK_BRACKET_L  9
+#define TK_BRACKET_R  10
+#define TK_COMMA      11
+#define TK_DOT        12
+#define TK_EQ         13
+#define TK_GE         14
+#define TK_GT         15
+#define TK_IDENT      16
+#define TK_K_BREAK    17
+#define TK_K_CHAR     18
+#define TK_K_CONTINUE 19
+#define TK_K_ELSE     20
+#define TK_K_FOR      21
+#define TK_K_IF       22
+#define TK_K_INT      23
+#define TK_K_LONG     24
+#define TK_K_RETURN   25
+#define TK_K_SIZEOF   26
+#define TK_K_STRUCT   27
+#define TK_K_VOID     28
+#define TK_K_WHILE    29
+#define TK_LE         30
+#define TK_LT         31
+#define TK_L_INT      32
+#define TK_L_STR      33
+#define TK_MINUS      34
+#define TK_NE         35
+#define TK_NOT        36
+#define TK_OROR       37
+#define TK_PAREN_L    38
+#define TK_PAREN_R    39
+#define TK_PERCENT    40
+#define TK_PLUS       41
+#define TK_SEMICOLON  42
+#define TK_SLASH      43
+#define TK_STAR       44
 
 struct Token {
     int kind;
@@ -99,166 +101,176 @@ struct Token* tokenize(char* src, int len) {
     while (pos < len) {
         char c = src[pos];
         if (c == '(') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_PAREN_L;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == ')') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_PAREN_R;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '{') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_BRACE_L;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '}') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_BRACE_R;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '[') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_BRACKET_L;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == ']') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_BRACKET_R;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == ',') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_COMMA;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == ';') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_SEMICOLON;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '+') {
-            pos = pos + 1;
-            tok->kind = TK_PLUS;
-            tok = tok + 1;
+            pos += 1;
+            if (src[pos] == '=') {
+                pos += 1;
+                tok->kind = TK_ASSIGN_ADD;
+                tok += 1;
+            } else {
+                tok->kind = TK_PLUS;
+                tok += 1;
+            }
         } else if (c == '|') {
-            pos = pos + 2;
+            pos += 2;
             tok->kind = TK_OROR;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '&') {
-            pos = pos + 1;
+            pos += 1;
             if (src[pos] == '&') {
-                pos = pos + 1;
+                pos += 1;
                 tok->kind = TK_ANDAND;
-                tok = tok + 1;
+                tok += 1;
             } else {
                 tok->kind = TK_AND;
-                tok = tok + 1;
+                tok += 1;
             }
         } else if (c == '-') {
-            pos = pos + 1;
+            pos += 1;
             if (src[pos] == '>') {
-                pos = pos + 1;
+                pos += 1;
                 tok->kind = TK_ARROW;
-                tok = tok + 1;
+                tok += 1;
+            } else if (src[pos] == '=') {
+                pos += 1;
+                tok->kind = TK_ASSIGN_SUB;
+                tok += 1;
             } else {
                 tok->kind = TK_MINUS;
-                tok = tok + 1;
+                tok += 1;
             }
         } else if (c == '*') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_STAR;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '/') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_SLASH;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '%') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_PERCENT;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '.') {
-            pos = pos + 1;
+            pos += 1;
             tok->kind = TK_DOT;
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '!') {
-            pos = pos + 1;
+            pos += 1;
             if (src[pos] == '=') {
-                pos = pos + 1;
+                pos += 1;
                 tok->kind = TK_NE;
-                tok = tok + 1;
+                tok += 1;
             } else {
                 tok->kind = TK_NOT;
-                tok = tok + 1;
+                tok += 1;
             }
         } else if (c == '=') {
-            pos = pos + 1;
+            pos += 1;
             if (src[pos] == '=') {
-                pos = pos + 1;
+                pos += 1;
                 tok->kind = TK_EQ;
-                tok = tok + 1;
+                tok += 1;
             } else {
                 tok->kind = TK_ASSIGN;
-                tok = tok + 1;
+                tok += 1;
             }
         } else if (c == '<') {
-            pos = pos + 1;
+            pos += 1;
             if (src[pos] == '=') {
-                pos = pos + 1;
+                pos += 1;
                 tok->kind = TK_LE;
-                tok = tok + 1;
+                tok += 1;
             } else {
                 tok->kind = TK_LT;
-                tok = tok + 1;
+                tok += 1;
             }
         } else if (c == '>') {
-            pos = pos + 1;
+            pos += 1;
             if (src[pos] == '=') {
-                pos = pos + 1;
+                pos += 1;
                 tok->kind = TK_GE;
-                tok = tok + 1;
+                tok += 1;
             } else {
                 tok->kind = TK_GT;
-                tok = tok + 1;
+                tok += 1;
             }
         } else if (c == '\'') {
-            pos = pos + 1;
+            pos += 1;
             ch = src[pos];
             if (ch == '\\') {
-                pos = pos + 1;
+                pos += 1;
                 ch = src[pos];
                 if (ch == 'n') {
                     ch = '\n';
                 }
             }
-            pos = pos + 2;
+            pos += 2;
             tok->kind = TK_L_INT;
             tok->value = calloc(4, sizeof(char));
             sprintf(tok->value, "%d", ch);
-            tok = tok + 1;
+            tok += 1;
         } else if (c == '"') {
-            pos = pos + 1;
+            pos += 1;
             start = pos;
             while (1) {
                 ch = src[pos];
                 if (ch == '\\') {
-                    pos = pos + 1;
+                    pos += 1;
                 } else if (ch == '"') {
                     break;
                 }
-                pos = pos + 1;
+                pos += 1;
             }
             tok->kind = TK_L_STR;
             tok->value = calloc(pos - start + 1, sizeof(char));
             memcpy(tok->value, src + start, pos - start);
-            pos = pos + 1;
-            tok = tok + 1;
+            pos += 1;
+            tok += 1;
         } else if (isdigit(c)) {
             start = pos;
             while (isdigit(src[pos])) {
-                pos = pos + 1;
+                pos += 1;
             }
             tok->kind = TK_L_INT;
             tok->value = calloc(pos - start + 1, sizeof(char));
             memcpy(tok->value, src + start, pos - start);
-            tok = tok + 1;
+            tok += 1;
         } else if (isalpha(c)) {
             start = pos;
             while (isalnum(src[pos]) || src[pos] == '_') {
-                pos = pos + 1;
+                pos += 1;
             }
             int ident_len = pos - start;
             if (ident_len == 5 && strstr(src + start, "break") == src + start) {
@@ -297,39 +309,39 @@ struct Token* tokenize(char* src, int len) {
                         tok->value = defines[i].to->value;
                         break;
                     }
-                    i = i + 1;
+                    i += 1;
                 }
                 if (defines + i == def) {
                     tok->kind = TK_IDENT;
                 }
             }
-            tok = tok + 1;
+            tok += 1;
         } else if (isspace(c)) {
-            pos = pos + 1;
+            pos += 1;
         } else if (c == '#') {
-            pos = pos + 1;
-            pos = pos + 6;
+            pos += 1;
+            pos += 6;
             while (isspace(src[pos])) {
-                pos = pos + 1;
+                pos += 1;
             }
             start = pos;
             while (isalnum(src[pos]) || src[pos] == '_') {
-                pos = pos + 1;
+                pos += 1;
             }
             def->from = calloc(pos - start + 1, sizeof(char));
             memcpy(def->from, src + start, pos - start);
             while (isspace(src[pos])) {
-                pos = pos + 1;
+                pos += 1;
             }
             int start2 = pos;
             while (isdigit(src[pos])) {
-                pos = pos + 1;
+                pos += 1;
             }
             def->to = calloc(1, sizeof(struct Token));
             def->to->kind = TK_L_INT;
             def->to->value = calloc(pos - start2 + 1, sizeof(char));
             memcpy(def->to->value, src + start2, pos - start2);
-            def = def + 1;
+            def += 1;
         } else {
             fatal_error("unknown token");
         }
@@ -511,9 +523,9 @@ int type_sizeof_struct(struct Type* ty) {
 
         if (next_offset % align != 0) {
             padding = align - next_offset % align;
-            next_offset = next_offset + padding;
+            next_offset += padding;
         }
-        next_offset = next_offset + size;
+        next_offset += size;
         if (struct_align < align) {
             struct_align = align;
         }
@@ -522,7 +534,7 @@ int type_sizeof_struct(struct Type* ty) {
     }
     if (next_offset % struct_align != 0) {
         padding = struct_align - next_offset % struct_align;
-        next_offset = next_offset + padding;
+        next_offset += padding;
     }
     return next_offset;
 }
@@ -557,12 +569,12 @@ int type_offsetof(struct Type* ty, char* name) {
 
         if (next_offset % align != 0) {
             int padding = align - next_offset % align;
-            next_offset = next_offset + padding;
+            next_offset += padding;
         }
         if (strcmp(member->name, name) == 0) {
             return next_offset;
         }
-        next_offset = next_offset + size;
+        next_offset += size;
 
         member = member->next;
     }
@@ -625,7 +637,7 @@ struct Token* peek_token(struct Parser* p) {
 }
 
 struct Token* next_token(struct Parser* p) {
-    p->pos = p->pos + 1;
+    p->pos += 1;
     return p->tokens + p->pos - 1;
 }
 
@@ -646,7 +658,7 @@ struct Token* expect(struct Parser* p, int expected) {
 
 int find_lvar(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_locals; i = i + 1) {
+    for (i = 0; i < p->n_locals; i += 1) {
         if (strcmp(p->locals[i].name, name) == 0) {
             return i;
         }
@@ -656,7 +668,7 @@ int find_lvar(struct Parser* p, char* name) {
 
 int find_func(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_funcs; i = i + 1) {
+    for (i = 0; i < p->n_funcs; i += 1) {
         if (strcmp(p->funcs[i].name, name) == 0) {
             return i;
         }
@@ -673,7 +685,7 @@ char* parse_ident(struct Parser* p) {
 
 int register_str_lit(struct Parser* p, char* s) {
     p->str_literals[p->n_str_literals] = s;
-    p->n_str_literals = p->n_str_literals + 1;
+    p->n_str_literals += 1;
     return p->n_str_literals;
 }
 
@@ -837,7 +849,7 @@ struct Type* parse_type(struct Parser* p) {
         ty->kind = TY_STRUCT;
         char* name = parse_ident(p);
         int struct_index;
-        for (struct_index = 0; struct_index < p->n_structs; struct_index = struct_index + 1) {
+        for (struct_index = 0; struct_index < p->n_structs; struct_index += 1) {
             if (strcmp(name, p->structs[struct_index].name) == 0) {
                 break;
             }
@@ -1039,7 +1051,7 @@ struct AstNode* parse_assignment_expr(struct Parser *p) {
     struct AstNode* lhs = parse_logical_or_expr(p);
     while (1) {
         int op = peek_token(p)->kind;
-        if (op == TK_ASSIGN) {
+        if (op == TK_ASSIGN || op == TK_ASSIGN_ADD || op == TK_ASSIGN_SUB) {
             next_token(p);
             struct AstNode* rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
@@ -1167,7 +1179,7 @@ struct AstNode* parse_var_decl(struct Parser* p) {
     }
     p->locals[p->n_locals].name = name;
     p->locals[p->n_locals].ty = ty;
-    p->n_locals = p->n_locals + 1;
+    p->n_locals += 1;
 
     struct AstNode* ret;
     if (init) {
@@ -1238,7 +1250,7 @@ void register_params(struct Parser* p, struct AstNode* params) {
     while (param) {
         p->locals[p->n_locals].name = param->name;
         p->locals[p->n_locals].ty = param->ty;
-        p->n_locals = p->n_locals + 1;
+        p->n_locals += 1;
         param = param->next;
     }
 }
@@ -1246,7 +1258,7 @@ void register_params(struct Parser* p, struct AstNode* params) {
 void register_func(struct Parser* p, char* name, struct Type* ty) {
     p->funcs[p->n_funcs].name = name;
     p->funcs[p->n_funcs].ty = ty;
-    p->n_funcs = p->n_funcs + 1;
+    p->n_funcs += 1;
 }
 
 struct AstNode* parse_param(struct Parser* p) {
@@ -1329,7 +1341,7 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     }
 
     int struct_index;
-    for (struct_index = 0; struct_index < p->n_structs; struct_index = struct_index + 1) {
+    for (struct_index = 0; struct_index < p->n_structs; struct_index += 1) {
         if (strcmp(name, p->structs[struct_index].name) == 0) {
             break;
         }
@@ -1337,7 +1349,7 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     if (struct_index == p->n_structs) {
         p->structs[struct_index].kind = AST_STRUCT_DEF;
         p->structs[struct_index].name = name;
-        p->n_structs = p->n_structs + 1;
+        p->n_structs += 1;
     }
     if (peek_token(p)->kind == TK_SEMICOLON) {
         next_token(p);
@@ -1400,7 +1412,7 @@ void assert_ast_kind(struct AstNode* ast, int kind) {
 
 int gen_new_label(struct CodeGen* g) {
     int new_label = g->next_label;
-    g->next_label = g->next_label + 1;
+    g->next_label += 1;
     return new_label;
 }
 
@@ -1430,7 +1442,7 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
         } else {
             fatal_error("gen_func_prologue: too many params");
         }
-        param_index = param_index + 1;
+        param_index += 1;
         param = param->next;
     }
     printf("  sub rsp, %d\n", 8 * LVAR_MAX);
@@ -1620,9 +1632,70 @@ void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
 
     gen_expr(g, ast->expr1, GEN_LVAL);
     gen_expr(g, ast->expr2, GEN_RVAL);
-    printf("  pop rdi\n");
-    printf("  pop rax\n");
     if (ast->op == TK_ASSIGN) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
+        if (type_sizeof(ast->expr1->ty) == 1) {
+            printf("  mov BYTE PTR [rax], dil\n");
+        } else if (type_sizeof(ast->expr1->ty) == 4) {
+            printf("  mov DWORD PTR [rax], edi\n");
+        } else {
+            printf("  mov [rax], rdi\n");
+        }
+        printf("  push rdi\n");
+    } else if (ast->op == TK_ASSIGN_ADD) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
+        printf("  push rax\n");
+        printf("  push rdi\n");
+        printf("  push rax\n");
+        gen_lval2rval(ast->expr1->ty);
+        printf("  pop rax\n");
+        printf("  pop rdi\n");
+        if (ast->expr1->ty->kind == TY_PTR) {
+            if (ast->expr2->kind != AST_OFFSETOF) {
+                printf("  imul rdi, %d\n", type_sizeof(ast->expr1->ty->to));
+            }
+            printf("  add rax, rdi\n");
+        } else if (ast->expr2->ty->kind == TY_PTR) {
+            if (ast->expr1->kind != AST_OFFSETOF) {
+                printf("  imul rax, %d\n", type_sizeof(ast->expr2->ty->to));
+            }
+            printf("  add rax, rdi\n");
+        } else {
+            printf("  add rax, rdi\n");
+        }
+        printf("  push rax\n");
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
+        if (type_sizeof(ast->expr1->ty) == 1) {
+            printf("  mov BYTE PTR [rax], dil\n");
+        } else if (type_sizeof(ast->expr1->ty) == 4) {
+            printf("  mov DWORD PTR [rax], edi\n");
+        } else {
+            printf("  mov [rax], rdi\n");
+        }
+        printf("  push rdi\n");
+    } else if (ast->op == TK_ASSIGN_SUB) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
+        printf("  push rax\n");
+        printf("  push rdi\n");
+        printf("  push rax\n");
+        gen_lval2rval(ast->expr1->ty);
+        printf("  pop rax\n");
+        printf("  pop rdi\n");
+        if (ast->expr2->ty->kind == TY_PTR) {
+            fatal_error("todo");
+        } else if (ast->expr1->ty->kind == TY_PTR) {
+            printf("  imul rdi, %d\n", type_sizeof(ast->expr1->ty->to));
+            printf("  sub rax, rdi\n");
+        } else {
+            printf("  sub rax, rdi\n");
+        }
+        printf("  push rax\n");
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
         if (type_sizeof(ast->expr1->ty) == 1) {
             printf("  mov BYTE PTR [rax], dil\n");
         } else if (type_sizeof(ast->expr1->ty) == 4) {
@@ -1645,7 +1718,7 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
     struct AstNode* arg = args->next;
     int n_args = 0;
     while (arg) {
-        n_args = n_args + 1;
+        n_args += 1;
         gen_expr(g, arg, GEN_RVAL);
         arg = arg->next;
     }
@@ -1765,7 +1838,7 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
     printf("  # gen_for_stmt\n");
 
     int label = gen_new_label(g);
-    g->loop_labels = g->loop_labels + 1;
+    g->loop_labels += 1;
     *g->loop_labels = label;
 
     if (ast->expr1) {
@@ -1786,7 +1859,7 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
     printf("  jmp .Lbegin%d\n", label);
     printf(".Lend%d:\n", label);
 
-    g->loop_labels = g->loop_labels - 1;
+    g->loop_labels -= 1;
 }
 
 void gen_break_stmt(struct CodeGen* g, struct AstNode* ast) {
@@ -1862,7 +1935,7 @@ void gen(struct CodeGen* g, struct AstNode* ast) {
     printf(".intel_syntax noprefix\n\n");
 
     int idx = 0;
-    for (idx = 0; ast->str_literals[idx]; idx = idx + 1) {
+    for (idx = 0; ast->str_literals[idx]; idx += 1) {
         printf(".Lstr__%d:\n", idx + 1);
         printf("  .string \"%s\"\n\n", ast->str_literals[idx]);
     }
