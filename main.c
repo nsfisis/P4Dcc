@@ -385,64 +385,60 @@ int type_alignof(struct Type* ty) {
 
 #define AST_UNKNOWN            0
 
-#define AST_ARG_LIST           1
-#define AST_ASSIGN_EXPR        2
-#define AST_BINARY_EXPR        3
-#define AST_BLOCK              4
-#define AST_BREAK_STMT         5
-#define AST_CONTINUE_STMT      6
-#define AST_DEREF_EXPR         7
-#define AST_EXPR_STMT          8
-#define AST_FOR_STMT           9
-#define AST_FUNC_CALL          10
-#define AST_FUNC_DECL          11
-#define AST_FUNC_DEF           12
-#define AST_IF_STMT            13
-#define AST_INT_LIT_EXPR       14
-#define AST_LOGICAL_EXPR       15
-#define AST_LVAR               16
-#define AST_PARAM              17
-#define AST_PARAM_LIST         18
-#define AST_PROGRAM            19
-#define AST_REF_EXPR           20
-#define AST_RETURN_STMT        21
-#define AST_STRUCT_DECL        22
-#define AST_STRUCT_DEF         23
-#define AST_STRUCT_MEMBER      24
-#define AST_STRUCT_MEMBER_LIST 25
-#define AST_STR_LIT_EXPR       26
-#define AST_TYPE               27
-#define AST_UNARY_EXPR         28
-#define AST_VAR_DECL           29
+#define AST_ASSIGN_EXPR        1
+#define AST_BINARY_EXPR        2
+#define AST_BREAK_STMT         3
+#define AST_CONTINUE_STMT      4
+#define AST_DEREF_EXPR         5
+#define AST_EXPR_STMT          6
+#define AST_FOR_STMT           7
+#define AST_FUNC_CALL          8
+#define AST_FUNC_DECL          9
+#define AST_FUNC_DEF           10
+#define AST_IF_STMT            11
+#define AST_INT_LIT_EXPR       12
+#define AST_LIST               13
+#define AST_LOGICAL_EXPR       14
+#define AST_LVAR               15
+#define AST_PARAM              16
+#define AST_REF_EXPR           17
+#define AST_RETURN_STMT        18
+#define AST_STRUCT_DECL        19
+#define AST_STRUCT_DEF         20
+#define AST_STRUCT_MEMBER      21
+#define AST_STR_LIT_EXPR       22
+#define AST_TYPE               23
+#define AST_UNARY_EXPR         24
+#define AST_VAR_DECL           25
 
-#define node_next      next
-#define node_last      last
-#define node_lhs       expr1
-#define node_rhs       expr2
-#define node_operand   expr1
-#define node_cond      expr1
-#define node_init      expr2
-#define node_update    expr3
-#define node_then      expr2
-#define node_else      expr3
-#define node_body      expr4
-#define node_members   expr1
-#define node_params    expr1
+#define node_items     __n1
+#define node_len       ival
+#define node_expr      __n1
+#define node_lhs       __n1
+#define node_rhs       __n2
+#define node_operand   __n1
+#define node_cond      __n1
+#define node_init      __n2
+#define node_update    __n3
+#define node_then      __n2
+#define node_else      __n3
+#define node_body      __n4
+#define node_members   __n1
+#define node_params    __n1
+#define node_args      __n1
 #define node_int_value ival
 #define node_index     ival
 #define node_op        ival
 
 struct AstNode {
     int kind;
-    struct AstNode* next;
-    struct AstNode* last;
     char* name;
-    struct AstNode* expr1;
-    struct AstNode* expr2;
-    struct AstNode* expr3;
-    struct AstNode* expr4;
     int ival;
     struct Type* ty;
+    struct AstNode* __n1;
+    struct AstNode* __n2;
+    struct AstNode* __n3;
+    struct AstNode* __n4;
 };
 
 struct Program {
@@ -456,13 +452,22 @@ struct AstNode* ast_new(int kind) {
     return ast;
 }
 
-struct AstNode* ast_new_list(int kind) {
-    if (kind != AST_PROGRAM && kind != AST_BLOCK && kind != AST_ARG_LIST && kind != AST_PARAM_LIST && kind != AST_STRUCT_MEMBER_LIST) {
-        fatal_error("ast_new_list: non-list ast");
+struct AstNode* ast_new_list(int capacity) {
+    struct AstNode* list = ast_new(AST_LIST);
+    list->node_items = calloc(capacity, sizeof(struct AstNode));
+    list->node_len = 0;
+    return list;
+}
+
+void ast_append(struct AstNode* list, struct AstNode* item) {
+    if (list->kind != AST_LIST) {
+        fatal_error("ast_append: ast is not a list");
     }
-    struct AstNode* ast = ast_new(kind);
-    ast->node_last = ast;
-    return ast;
+    if (!item) {
+        return;
+    }
+    memcpy(list->node_items + list->node_len, item, sizeof(struct AstNode));
+    list->node_len += 1;
 }
 
 struct AstNode* ast_new_unary_expr(int op, struct AstNode* operand) {
@@ -500,8 +505,9 @@ int type_sizeof_struct(struct Type* ty) {
     int struct_align = 0;
     int padding;
 
-    struct AstNode* member = ty->struct_def->node_members->node_next;
-    while (member) {
+    int i;
+    for (i = 0; i < ty->struct_def->node_members->node_len; i += 1) {
+        struct AstNode* member = ty->struct_def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -513,8 +519,6 @@ int type_sizeof_struct(struct Type* ty) {
         if (struct_align < align) {
             struct_align = align;
         }
-
-        member = member->node_next;
     }
     if (next_offset % struct_align != 0) {
         padding = struct_align - next_offset % struct_align;
@@ -526,15 +530,14 @@ int type_sizeof_struct(struct Type* ty) {
 int type_alignof_struct(struct Type* ty) {
     int struct_align = 0;
 
-    struct AstNode* member = ty->struct_def->node_members->node_next;
-    while (member) {
+    int i;
+    for (i = 0; i < ty->struct_def->node_members->node_len; i += 1) {
+        struct AstNode* member = ty->struct_def->node_members->node_items + i;
         int align = type_alignof(member->ty);
 
         if (struct_align < align) {
             struct_align = align;
         }
-
-        member = member->node_next;
     }
     return struct_align;
 }
@@ -546,8 +549,9 @@ int type_offsetof(struct Type* ty, char* name) {
 
     int next_offset = 0;
 
-    struct AstNode* member = ty->struct_def->node_members->node_next;
-    while (member) {
+    int i;
+    for (i = 0; i < ty->struct_def->node_members->node_len; i += 1) {
+        struct AstNode* member = ty->struct_def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -559,8 +563,6 @@ int type_offsetof(struct Type* ty, char* name) {
             return next_offset;
         }
         next_offset += size;
-
-        member = member->node_next;
     }
 
     fatal_error("type_offsetof: member not found");
@@ -571,12 +573,12 @@ struct Type* type_member_typeof(struct Type* ty, char* name) {
         fatal_error("type_offsetof: type is not a struct");
     }
 
-    struct AstNode* member = ty->struct_def->node_members->node_next;
-    while (member) {
+    int i;
+    for (i = 0; i < ty->struct_def->node_members->node_len; i += 1) {
+        struct AstNode* member = ty->struct_def->node_members->node_items + i;
         if (strcmp(member->name, name) == 0) {
             return member->ty;
         }
-        member = member->node_next;
     }
 
     fatal_error("type_offsetof: member not found");
@@ -724,11 +726,10 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
 }
 
 struct AstNode* parse_arg_list(struct Parser* p) {
-    struct AstNode* list = ast_new_list(AST_ARG_LIST);
+    struct AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TK_PAREN_R) {
         struct AstNode* arg = parse_expr(p);
-        list->node_last->node_next = arg;
-        list->node_last = arg;
+        ast_append(list, arg);
         if (peek_token(p)->kind == TK_COMMA) {
             next_token(p);
         } else {
@@ -749,7 +750,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             next_token(p);
             struct AstNode* args = parse_arg_list(p);
             expect(p, TK_PAREN_R);
-            ret->expr1 = args;
+            ret->node_args = args;
         } else if (tk == TK_BRACKET_L) {
             next_token(p);
             struct AstNode* idx = parse_expr(p);
@@ -760,7 +761,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             idx->ty = type_new(TY_INT);
             ptr_expr = ast_new_binary_expr(TK_PLUS, ret, idx);
             ptr_expr->ty = ret->ty;
-            e->expr1 = ptr_expr;
+            e->node_operand = ptr_expr;
             e->ty = ret->ty->to;
 
             ret = e;
@@ -770,11 +771,11 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
 
             e = ast_new(AST_DEREF_EXPR);
             struct AstNode* ref_of_ret = ast_new(AST_REF_EXPR);
-            ref_of_ret->expr1 = ret;
+            ref_of_ret->node_operand = ret;
             ref_of_ret->ty = type_new_ptr(ret->ty);
             ptr_expr = ast_new_binary_expr(TK_PLUS, ref_of_ret, ast_new_int_lit(type_offsetof(ret->ty, name)));
             ptr_expr->ty = ref_of_ret->ty;
-            e->expr1 = ptr_expr;
+            e->node_operand = ptr_expr;
             e->ty = type_member_typeof(ret->ty, name);
 
             ret = e;
@@ -785,7 +786,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             e = ast_new(AST_DEREF_EXPR);
             ptr_expr = ast_new_binary_expr(TK_PLUS, ret, ast_new_int_lit(type_offsetof(ret->ty->to, name)));
             ptr_expr->ty = ret->ty;
-            e->expr1 = ptr_expr;
+            e->node_operand = ptr_expr;
             e->ty = type_member_typeof(ret->ty->to, name);
 
             ret = e;
@@ -1060,7 +1061,7 @@ struct AstNode* parse_return_stmt(struct Parser* p) {
     expect(p, TK_SEMICOLON);
 
     struct AstNode* ret = ast_new(AST_RETURN_STMT);
-    ret->expr1 = expr;
+    ret->node_expr = expr;
     return ret;
 }
 
@@ -1170,7 +1171,7 @@ struct AstNode* parse_var_decl(struct Parser* p) {
         struct AstNode* assign = ast_new_assign_expr(TK_ASSIGN, lhs, init);
         assign->ty = ty;
         ret = ast_new(AST_EXPR_STMT);
-        ret->expr1 = assign;
+        ret->node_expr = assign;
     } else {
         ret = ast_new(AST_VAR_DECL);
     }
@@ -1181,17 +1182,16 @@ struct AstNode* parse_expr_stmt(struct Parser* p) {
     struct AstNode* e = parse_expr(p);
     expect(p, TK_SEMICOLON);
     struct AstNode* stmt = ast_new(AST_EXPR_STMT);
-    stmt->expr1 = e;
+    stmt->node_expr = e;
     return stmt;
 }
 
 struct AstNode* parse_block_stmt(struct Parser* p) {
-    struct AstNode* list = ast_new_list(AST_BLOCK);
+    struct AstNode* list = ast_new_list(1024);
     expect(p, TK_BRACE_L);
     while (peek_token(p)->kind != TK_BRACE_R) {
         struct AstNode* stmt = parse_stmt(p);
-        list->node_last->node_next = stmt;
-        list->node_last = stmt;
+        ast_append(list, stmt);
     }
     expect(p, TK_BRACE_R);
     return list;
@@ -1226,12 +1226,12 @@ void enter_func(struct Parser* p) {
 }
 
 void register_params(struct Parser* p, struct AstNode* params) {
-    struct AstNode* param = params->node_next;
-    while (param) {
+    int i;
+    for (i = 0; i < params->node_len; i += 1) {
+        struct AstNode* param = params->node_items + i;
         p->locals[p->n_locals].name = param->name;
         p->locals[p->n_locals].ty = param->ty;
         p->n_locals += 1;
-        param = param->node_next;
     }
 }
 
@@ -1254,11 +1254,10 @@ struct AstNode* parse_param(struct Parser* p) {
 }
 
 struct AstNode* parse_param_list(struct Parser* p) {
-    struct AstNode* list = ast_new_list(AST_PARAM_LIST);
+    struct AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TK_PAREN_R) {
         struct AstNode* param = parse_param(p);
-        list->node_last->node_next = param;
-        list->node_last = param;
+        ast_append(list, param);
         if (peek_token(p)->kind == TK_COMMA) {
             next_token(p);
         } else {
@@ -1301,11 +1300,10 @@ struct AstNode* parse_struct_member(struct Parser* p) {
 }
 
 struct AstNode* parse_struct_members(struct Parser* p) {
-    struct AstNode* list = ast_new_list(AST_STRUCT_MEMBER_LIST);
+    struct AstNode* list = ast_new_list(16);
     while (peek_token(p)->kind != TK_BRACE_R) {
         struct AstNode* member = parse_struct_member(p);
-        list->node_last->node_next = member;
-        list->node_last = member;
+        ast_append(list, member);
     }
     return list;
 }
@@ -1356,14 +1354,13 @@ struct AstNode* parse_toplevel(struct Parser* p) {
 }
 
 struct Program* parse(struct Parser* p) {
-    struct AstNode* list = ast_new_list(AST_PROGRAM);
+    struct AstNode* list = ast_new_list(1024);
     while (eof(p)) {
         struct AstNode* n = parse_toplevel(p);
         if (n->kind != AST_FUNC_DEF) {
             continue;
         }
-        list->node_last->node_next = n;
-        list->node_last = n;
+        ast_append(list, n);
     }
     struct Program* prog = calloc(1, sizeof(struct Program));
     prog->funcs = list;
@@ -1409,8 +1406,8 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
     int param_index = 0;
-    struct AstNode* param = ast->node_params->node_next;
-    while (param) {
+    for (param_index = 0; param_index < ast->node_params->node_len; param_index += 1) {
+        struct AstNode* param = ast->node_params->node_items + param_index;
         if (param_index == 0) {
             printf("  push rdi\n");
         } else if (param_index == 1) {
@@ -1426,8 +1423,6 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
         } else {
             fatal_error("gen_func_prologue: too many params");
         }
-        param_index += 1;
-        param = param->node_next;
     }
     printf("  sub rsp, %d\n", 8 * LVAR_MAX);
 }
@@ -1660,17 +1655,14 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
     assert_ast_kind(ast, AST_FUNC_CALL);
     printf("  # gen_func_call\n");
 
-    char* func_name = ast->name;
-    struct AstNode* args = ast->expr1;
-    struct AstNode* arg = args->node_next;
-    int n_args = 0;
-    while (arg) {
-        n_args += 1;
-        gen_expr(g, arg, GEN_RVAL);
-        arg = arg->node_next;
-    }
     int i;
-    for (i = n_args - 1; i >= 0; i = i - 1) {
+    char* func_name = ast->name;
+    struct AstNode* args = ast->node_args;
+    for (i = 0; i < args->node_len; i += 1) {
+        struct AstNode* arg = args->node_items + i;
+        gen_expr(g, arg, GEN_RVAL);
+    }
+    for (i = args->node_len - 1; i >= 0; i -= 1) {
         if (i == 0) {
             printf("  pop rdi\n");
         } else if (i == 1) {
@@ -1754,8 +1746,8 @@ void gen_return_stmt(struct CodeGen* g, struct AstNode* ast) {
     assert_ast_kind(ast, AST_RETURN_STMT);
     printf("  # gen_return_stmt\n");
 
-    if (ast->expr1) {
-        gen_expr(g, ast->expr1, GEN_RVAL);
+    if (ast->node_expr) {
+        gen_expr(g, ast->node_expr, GEN_RVAL);
         printf("  pop rax\n");
     }
     gen_func_epilogue(g, ast);
@@ -1826,7 +1818,7 @@ void gen_continue_stmt(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_expr_stmt(struct CodeGen* g, struct AstNode* ast) {
-    gen_expr(g, ast->expr1, GEN_RVAL);
+    gen_expr(g, ast->node_expr, GEN_RVAL);
     printf("  pop rax\n");
 }
 
@@ -1834,16 +1826,17 @@ void gen_var_decl(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_block_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_BLOCK);
-    struct AstNode* stmt = ast->node_next;
-    while (stmt) {
+    assert_ast_kind(ast, AST_LIST);
+
+    int i;
+    for (i = 0; i < ast->node_len; i += 1) {
+        struct AstNode* stmt = ast->node_items + i;
         gen_stmt(g, stmt);
-        stmt = stmt->node_next;
     }
 }
 
 void gen_stmt(struct CodeGen* g, struct AstNode* ast) {
-    if (ast->kind == AST_BLOCK) {
+    if (ast->kind == AST_LIST) {
         gen_block_stmt(g, ast);
     } else if (ast->kind == AST_RETURN_STMT) {
         gen_return_stmt(g, ast);
@@ -1887,11 +1880,11 @@ void gen(struct CodeGen* g, struct Program* prog) {
 
     printf(".globl main\n\n");
 
-    assert_ast_kind(prog->funcs, AST_PROGRAM);
-    struct AstNode* func = prog->funcs->node_next;
-    while (func) {
+    assert_ast_kind(prog->funcs, AST_LIST);
+    int i;
+    for (i = 0; i < prog->funcs->node_len; i += 1) {
+        struct AstNode* func = prog->funcs->node_items + i;
         gen_func(g, func);
-        func = func->node_next;
     }
 }
 
