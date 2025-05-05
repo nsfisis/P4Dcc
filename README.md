@@ -46,6 +46,7 @@ To meet the four-day goal, many design decisions were made to reduce complexity 
         * Implemented after self-hosting
     * ~~No `while`~~
         * Implemented after self-hosting
+    * No `switch`
 * Limited preprocessor
     * Supports only simple `#define` that replaces identifiers with single integer or identifier
 * No global variables

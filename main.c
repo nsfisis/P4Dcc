@@ -385,31 +385,31 @@ int type_alignof(struct Type* ty) {
 
 #define AST_UNKNOWN            0
 
-#define AST_ASSIGN_EXPR        1
-#define AST_BINARY_EXPR        2
-#define AST_BREAK_STMT         3
-#define AST_CONTINUE_STMT      4
-#define AST_DEREF_EXPR         5
-#define AST_EXPR_STMT          6
-#define AST_FOR_STMT           7
-#define AST_FUNC_CALL          8
-#define AST_FUNC_DECL          9
-#define AST_FUNC_DEF           10
-#define AST_IF_STMT            11
-#define AST_INT_LIT_EXPR       12
-#define AST_LIST               13
-#define AST_LOGICAL_EXPR       14
-#define AST_LVAR               15
-#define AST_PARAM              16
-#define AST_REF_EXPR           17
-#define AST_RETURN_STMT        18
-#define AST_STRUCT_DECL        19
-#define AST_STRUCT_DEF         20
-#define AST_STRUCT_MEMBER      21
-#define AST_STR_LIT_EXPR       22
-#define AST_TYPE               23
-#define AST_UNARY_EXPR         24
-#define AST_VAR_DECL           25
+#define AST_ASSIGN_EXPR   1
+#define AST_BINARY_EXPR   2
+#define AST_BREAK_STMT    3
+#define AST_CONTINUE_STMT 4
+#define AST_DEREF_EXPR    5
+#define AST_EXPR_STMT     6
+#define AST_FOR_STMT      7
+#define AST_FUNC_CALL     8
+#define AST_FUNC_DECL     9
+#define AST_FUNC_DEF      10
+#define AST_IF_STMT       11
+#define AST_INT_LIT_EXPR  12
+#define AST_LIST          13
+#define AST_LOGICAL_EXPR  14
+#define AST_LVAR          15
+#define AST_PARAM         16
+#define AST_REF_EXPR      17
+#define AST_RETURN_STMT   18
+#define AST_STRUCT_DECL   19
+#define AST_STRUCT_DEF    20
+#define AST_STRUCT_MEMBER 21
+#define AST_STR_LIT_EXPR  22
+#define AST_TYPE          23
+#define AST_UNARY_EXPR    24
+#define AST_VAR_DECL      25
 
 #define node_items     __n1
 #define node_len       ival
@@ -474,6 +474,7 @@ struct AstNode* ast_new_unary_expr(int op, struct AstNode* operand) {
     struct AstNode* e = ast_new(AST_UNARY_EXPR);
     e->node_op = op;
     e->node_operand = operand;
+    e->ty = type_new(TY_INT);
     return e;
 }
 
@@ -482,6 +483,23 @@ struct AstNode* ast_new_binary_expr(int op, struct AstNode* lhs, struct AstNode*
     e->node_op = op;
     e->node_lhs = lhs;
     e->node_rhs = rhs;
+    if (op == TK_PLUS) {
+        if (lhs->ty->kind == TY_PTR) {
+            e->ty = lhs->ty;
+        } else if (rhs->ty->kind == TY_PTR) {
+            e->ty = rhs->ty;
+        } else {
+            e->ty = type_new(TY_INT);
+        }
+    } else if (op == TK_MINUS) {
+        if (lhs->ty->kind == TY_PTR) {
+            e->ty = lhs->ty;
+        } else {
+            e->ty = type_new(TY_INT);
+        }
+    } else {
+        e->ty = type_new(TY_INT);
+    }
     return e;
 }
 
@@ -742,7 +760,6 @@ struct AstNode* parse_arg_list(struct Parser* p) {
 struct AstNode* parse_postfix_expr(struct Parser* p) {
     struct AstNode* ret = parse_primary_expr(p);
     struct AstNode* e;
-    struct AstNode* ptr_expr;
     char* name;
     while (1) {
         int tk = peek_token(p)->kind;
@@ -758,10 +775,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
 
             e = ast_new(AST_DEREF_EXPR);
             idx = ast_new_binary_expr(TK_STAR, idx, ast_new_int_lit(type_sizeof(ret->ty->to)));
-            idx->ty = type_new(TY_INT);
-            ptr_expr = ast_new_binary_expr(TK_PLUS, ret, idx);
-            ptr_expr->ty = ret->ty;
-            e->node_operand = ptr_expr;
+            e->node_operand = ast_new_binary_expr(TK_PLUS, ret, idx);
             e->ty = ret->ty->to;
 
             ret = e;
@@ -773,9 +787,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             struct AstNode* ref_of_ret = ast_new(AST_REF_EXPR);
             ref_of_ret->node_operand = ret;
             ref_of_ret->ty = type_new_ptr(ret->ty);
-            ptr_expr = ast_new_binary_expr(TK_PLUS, ref_of_ret, ast_new_int_lit(type_offsetof(ret->ty, name)));
-            ptr_expr->ty = ref_of_ret->ty;
-            e->node_operand = ptr_expr;
+            e->node_operand = ast_new_binary_expr(TK_PLUS, ref_of_ret, ast_new_int_lit(type_offsetof(ret->ty, name)));
             e->ty = type_member_typeof(ret->ty, name);
 
             ret = e;
@@ -784,9 +796,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             name = parse_ident(p);
 
             e = ast_new(AST_DEREF_EXPR);
-            ptr_expr = ast_new_binary_expr(TK_PLUS, ret, ast_new_int_lit(type_offsetof(ret->ty->to, name)));
-            ptr_expr->ty = ret->ty;
-            e->node_operand = ptr_expr;
+            e->node_operand = ast_new_binary_expr(TK_PLUS, ret, ast_new_int_lit(type_offsetof(ret->ty->to, name)));
             e->ty = type_member_typeof(ret->ty->to, name);
 
             ret = e;
@@ -854,15 +864,11 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
     if (op == TK_MINUS) {
         next_token(p);
         operand = parse_prefix_expr(p);
-        e = ast_new_binary_expr(op, ast_new_int_lit(0), operand);
-        e->ty = type_new(TY_INT);
-        return e;
+        return ast_new_binary_expr(op, ast_new_int_lit(0), operand);
     } else if (op == TK_NOT) {
         next_token(p);
         operand = parse_prefix_expr(p);
-        e = ast_new_unary_expr(op, operand);
-        e->ty = type_new(TY_INT);
-        return e;
+        return ast_new_unary_expr(op, operand);
     } else if (op == TK_AND) {
         next_token(p);
         operand = parse_prefix_expr(p);
@@ -895,7 +901,6 @@ struct AstNode* parse_multiplicative_expr(struct Parser* p) {
             next_token(p);
             struct AstNode* rhs = parse_prefix_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
-            lhs->ty = type_new(TY_INT);
         } else {
             break;
         }
@@ -906,39 +911,25 @@ struct AstNode* parse_multiplicative_expr(struct Parser* p) {
 struct AstNode* parse_additive_expr(struct Parser* p) {
     struct AstNode* lhs = parse_multiplicative_expr(p);
     struct AstNode* rhs;
-    struct Type* result_type;
     while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_PLUS) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TY_PTR) {
-                result_type = lhs->ty;
-                rhs = ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to)));
-                rhs->ty = type_new(TY_INT);
-                lhs = ast_new_binary_expr(op, lhs, rhs);
-                lhs->ty = result_type;
+                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to))));
             } else if (rhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(TK_STAR, lhs, ast_new_int_lit(type_sizeof(rhs->ty->to)));
-                lhs->ty = type_new(TY_INT);
-                lhs = ast_new_binary_expr(op, lhs, rhs);
-                lhs->ty = rhs->ty;
+                lhs = ast_new_binary_expr(op, ast_new_binary_expr(TK_STAR, lhs, ast_new_int_lit(type_sizeof(rhs->ty->to))), rhs);
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
-                lhs->ty = type_new(TY_INT);
             }
         } else if (op == TK_MINUS) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TY_PTR) {
-                result_type = lhs->ty;
-                rhs = ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to)));
-                rhs->ty = type_new(TY_INT);
-                lhs = ast_new_binary_expr(op, lhs, rhs);
-                lhs->ty = result_type;
+                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to))));
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
-                lhs->ty = type_new(TY_INT);
             }
         } else {
             break;
@@ -956,17 +947,14 @@ struct AstNode* parse_relational_expr(struct Parser* p) {
             next_token(p);
             rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
-            lhs->ty = type_new(TY_INT);
         } else if (op == TK_GT) {
             next_token(p);
             rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(TK_LT, rhs, lhs);
-            lhs->ty = type_new(TY_INT);
         } else if (op == TK_GE) {
             next_token(p);
             rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(TK_LE, rhs, lhs);
-            lhs->ty = type_new(TY_INT);
         } else {
             break;
         }
@@ -982,7 +970,6 @@ struct AstNode* parse_equality_expr(struct Parser* p) {
             next_token(p);
             struct AstNode* rhs = parse_relational_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
-            lhs->ty = type_new(TY_INT);
         } else {
             break;
         }
