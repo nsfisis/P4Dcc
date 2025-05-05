@@ -214,7 +214,7 @@ struct Token* tokenize(char* src) {
             tok->kind = TK_L_INT;
             tok->value = calloc(pos - start + 1, sizeof(char));
             memcpy(tok->value, src + start, pos - start);
-        } else if (isalpha(c)) {
+        } else if (isalpha(c) || c == '_') {
             pos -= 1;
             start = pos;
             while (isalnum(src[pos]) || src[pos] == '_') {
