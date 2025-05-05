@@ -22,7 +22,7 @@ void fatal_error(char* msg) {
 int read_all(char* buf) {
     int c;
     int n = 0;
-    for (;;) {
+    while (1) {
         c = getchar();
         if (c == -1) {
             break;
@@ -61,21 +61,22 @@ int read_all(char* buf) {
 #define TK_K_SIZEOF   24
 #define TK_K_STRUCT   25
 #define TK_K_VOID     26
-#define TK_LE         27
-#define TK_LT         28
-#define TK_L_INT      29
-#define TK_L_STR      30
-#define TK_MINUS      31
-#define TK_NE         32
-#define TK_NOT        33
-#define TK_OROR       34
-#define TK_PAREN_L    35
-#define TK_PAREN_R    36
-#define TK_PERCENT    37
-#define TK_PLUS       38
-#define TK_SEMICOLON  39
-#define TK_SLASH      40
-#define TK_STAR       41
+#define TK_K_WHILE    27
+#define TK_LE         28
+#define TK_LT         29
+#define TK_L_INT      30
+#define TK_L_STR      31
+#define TK_MINUS      32
+#define TK_NE         33
+#define TK_NOT        34
+#define TK_OROR       35
+#define TK_PAREN_L    36
+#define TK_PAREN_R    37
+#define TK_PERCENT    38
+#define TK_PLUS       39
+#define TK_SEMICOLON  40
+#define TK_SLASH      41
+#define TK_STAR       42
 
 struct Token {
     int kind;
@@ -95,7 +96,7 @@ struct Token* tokenize(char* src, int len) {
     int pos = 0;
     int ch;
     int start;
-    for (; pos < len; ) {
+    while (pos < len) {
         char c = src[pos];
         if (c == '(') {
             pos = pos + 1;
@@ -231,7 +232,7 @@ struct Token* tokenize(char* src, int len) {
         } else if (c == '"') {
             pos = pos + 1;
             start = pos;
-            for (;;) {
+            while (1) {
                 ch = src[pos];
                 if (ch == '\\') {
                     pos = pos + 1;
@@ -247,7 +248,7 @@ struct Token* tokenize(char* src, int len) {
             tok = tok + 1;
         } else if (isdigit(c)) {
             start = pos;
-            for (; isdigit(src[pos]); ) {
+            while (isdigit(src[pos])) {
                 pos = pos + 1;
             }
             tok->kind = TK_L_INT;
@@ -256,7 +257,7 @@ struct Token* tokenize(char* src, int len) {
             tok = tok + 1;
         } else if (isalpha(c)) {
             start = pos;
-            for (; isalnum(src[pos]) || src[pos] == '_'; ) {
+            while (isalnum(src[pos]) || src[pos] == '_') {
                 pos = pos + 1;
             }
             int ident_len = pos - start;
@@ -284,11 +285,13 @@ struct Token* tokenize(char* src, int len) {
                 tok->kind = TK_K_STRUCT;
             } else if (ident_len == 4 && strstr(src + start, "void") == src + start) {
                 tok->kind = TK_K_VOID;
+            } else if (ident_len == 5 && strstr(src + start, "while") == src + start) {
+                tok->kind = TK_K_WHILE;
             } else {
                 tok->value = calloc(ident_len + 1, sizeof(char));
                 memcpy(tok->value, src + start, ident_len);
                 int i = 0;
-                for (; defines + i != def; ) {
+                while (defines + i != def) {
                     if (strcmp(tok->value, defines[i].from) == 0) {
                         tok->kind = defines[i].to->kind;
                         tok->value = defines[i].to->value;
@@ -306,20 +309,20 @@ struct Token* tokenize(char* src, int len) {
         } else if (c == '#') {
             pos = pos + 1;
             pos = pos + 6;
-            for (; isspace(src[pos]); ) {
+            while (isspace(src[pos])) {
                 pos = pos + 1;
             }
             start = pos;
-            for (; isalnum(src[pos]) || src[pos] == '_'; ) {
+            while (isalnum(src[pos]) || src[pos] == '_') {
                 pos = pos + 1;
             }
             def->from = calloc(pos - start + 1, sizeof(char));
             memcpy(def->from, src + start, pos - start);
-            for (; isspace(src[pos]); ) {
+            while (isspace(src[pos])) {
                 pos = pos + 1;
             }
             int start2 = pos;
-            for (; isdigit(src[pos]); ) {
+            while (isdigit(src[pos])) {
                 pos = pos + 1;
             }
             def->to = calloc(1, sizeof(struct Token));
@@ -502,7 +505,7 @@ int type_sizeof_struct(struct Type* ty) {
     int padding;
 
     struct AstNode* member = ty->struct_def->node1->next;
-    for (; member; ) {
+    while (member) {
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -528,7 +531,7 @@ int type_alignof_struct(struct Type* ty) {
     int struct_align = 0;
 
     struct AstNode* member = ty->struct_def->node1->next;
-    for (; member; ) {
+    while (member) {
         int align = type_alignof(member->ty);
 
         if (struct_align < align) {
@@ -548,7 +551,7 @@ int type_offsetof(struct Type* ty, char* name) {
     int next_offset = 0;
 
     struct AstNode* member = ty->struct_def->node1->next;
-    for (; member; ) {
+    while (member) {
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -573,7 +576,7 @@ struct Type* type_member_typeof(struct Type* ty, char* name) {
     }
 
     struct AstNode* member = ty->struct_def->node1->next;
-    for (; member; ) {
+    while (member) {
         if (strcmp(member->name, name) == 0) {
             return member->ty;
         }
@@ -729,7 +732,7 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
 
 struct AstNode* parse_arg_list(struct Parser* p) {
     struct AstNode* list = ast_new_list(AST_ARG_LIST);
-    for (; peek_token(p)->kind != TK_PAREN_R; ) {
+    while (peek_token(p)->kind != TK_PAREN_R) {
         struct AstNode* arg = parse_expr(p);
         list->last->next = arg;
         list->last = arg;
@@ -750,7 +753,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
     struct AstNode* offset_node;
     int offset;
     char* name;
-    for (;;) {
+    while (1) {
         int tk = peek_token(p)->kind;
         if (tk == TK_PAREN_L) {
             next_token(p);
@@ -848,7 +851,7 @@ struct Type* parse_type(struct Parser* p) {
     } else {
         fatal_error("unreachable");
     }
-    for (;;) {
+    while (1) {
         struct Token* t2 = peek_token(p);
         if (t2->kind == TK_STAR) {
             next_token(p);
@@ -908,7 +911,7 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
 
 struct AstNode* parse_multiplicative_expr(struct Parser* p) {
     struct AstNode* lhs = parse_prefix_expr(p);
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_STAR || op == TK_SLASH || op == TK_PERCENT) {
             next_token(p);
@@ -926,7 +929,7 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
     struct AstNode* lhs = parse_multiplicative_expr(p);
     struct AstNode* rhs;
     struct Type* result_type;
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_PLUS) {
             next_token(p);
@@ -960,7 +963,7 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
 struct AstNode* parse_relational_expr(struct Parser* p) {
     struct AstNode* lhs = parse_additive_expr(p);
     struct AstNode* rhs;
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_LT || op == TK_LE) {
             next_token(p);
@@ -986,7 +989,7 @@ struct AstNode* parse_relational_expr(struct Parser* p) {
 
 struct AstNode* parse_equality_expr(struct Parser* p) {
     struct AstNode* lhs = parse_relational_expr(p);
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_EQ || op == TK_NE) {
             next_token(p);
@@ -1002,7 +1005,7 @@ struct AstNode* parse_equality_expr(struct Parser* p) {
 
 struct AstNode* parse_logical_and_expr(struct Parser* p) {
     struct AstNode* lhs = parse_equality_expr(p);
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_ANDAND) {
             next_token(p);
@@ -1018,7 +1021,7 @@ struct AstNode* parse_logical_and_expr(struct Parser* p) {
 
 struct AstNode* parse_logical_or_expr(struct Parser* p) {
     struct AstNode* lhs = parse_logical_and_expr(p);
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_OROR) {
             next_token(p);
@@ -1034,7 +1037,7 @@ struct AstNode* parse_logical_or_expr(struct Parser* p) {
 
 struct AstNode* parse_assignment_expr(struct Parser *p) {
     struct AstNode* lhs = parse_logical_or_expr(p);
-    for (;;) {
+    while (1) {
         int op = peek_token(p)->kind;
         if (op == TK_ASSIGN) {
             next_token(p);
@@ -1118,6 +1121,19 @@ struct AstNode* parse_for_stmt(struct Parser* p) {
     return stmt;
 }
 
+struct AstNode* parse_while_stmt(struct Parser* p) {
+    expect(p, TK_K_WHILE);
+    expect(p, TK_PAREN_L);
+    struct AstNode* cond = parse_expr(p);
+    expect(p, TK_PAREN_R);
+    struct AstNode* body = parse_stmt(p);
+
+    struct AstNode* stmt = ast_new(AST_FOR_STMT);
+    stmt->expr2 = cond;
+    stmt->node1 = body;
+    return stmt;
+}
+
 struct AstNode* parse_break_stmt(struct Parser* p) {
     expect(p, TK_K_BREAK);
     expect(p, TK_SEMICOLON);
@@ -1180,7 +1196,7 @@ struct AstNode* parse_expr_stmt(struct Parser* p) {
 struct AstNode* parse_block_stmt(struct Parser* p) {
     struct AstNode* list = ast_new_list(AST_BLOCK);
     expect(p, TK_BRACE_L);
-    for (; peek_token(p)->kind != TK_BRACE_R; ) {
+    while (peek_token(p)->kind != TK_BRACE_R) {
         struct AstNode* stmt = parse_stmt(p);
         list->last->next = stmt;
         list->last = stmt;
@@ -1197,6 +1213,8 @@ struct AstNode* parse_stmt(struct Parser* p) {
         return parse_if_stmt(p);
     } else if (t->kind == TK_K_FOR) {
         return parse_for_stmt(p);
+    } else if (t->kind == TK_K_WHILE) {
+        return parse_while_stmt(p);
     } else if (t->kind == TK_K_BREAK) {
         return parse_break_stmt(p);
     } else if (t->kind == TK_K_CONTINUE) {
@@ -1217,7 +1235,7 @@ void enter_func(struct Parser* p) {
 
 void register_params(struct Parser* p, struct AstNode* params) {
     struct AstNode* param = params->next;
-    for (; param; ) {
+    while (param) {
         p->locals[p->n_locals].name = param->name;
         p->locals[p->n_locals].ty = param->ty;
         p->n_locals = p->n_locals + 1;
@@ -1245,7 +1263,7 @@ struct AstNode* parse_param(struct Parser* p) {
 
 struct AstNode* parse_param_list(struct Parser* p) {
     struct AstNode* list = ast_new_list(AST_PARAM_LIST);
-    for (; peek_token(p)->kind != TK_PAREN_R; ) {
+    while (peek_token(p)->kind != TK_PAREN_R) {
         struct AstNode* param = parse_param(p);
         list->last->next = param;
         list->last = param;
@@ -1293,7 +1311,7 @@ struct AstNode* parse_struct_member(struct Parser* p) {
 
 struct AstNode* parse_struct_members(struct Parser* p) {
     struct AstNode* list = ast_new_list(AST_STRUCT_MEMBER_LIST);
-    for (; peek_token(p)->kind != TK_BRACE_R; ) {
+    while (peek_token(p)->kind != TK_BRACE_R) {
         struct AstNode* member = parse_struct_member(p);
         list->last->next = member;
         list->last = member;
@@ -1348,7 +1366,7 @@ struct AstNode* parse_toplevel(struct Parser* p) {
 
 struct AstNode* parse(struct Parser* p) {
     struct AstNode* list = ast_new_list(AST_PROGRAM);
-    for (; eof(p); ) {
+    while (eof(p)) {
         struct AstNode* n = parse_toplevel(p);
         list->last->next = n;
         list->last = n;
@@ -1396,7 +1414,7 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
     printf("  mov rbp, rsp\n");
     int param_index = 0;
     struct AstNode* param = ast->func_params->next;
-    for (; param; ) {
+    while (param) {
         if (param_index == 0) {
             printf("  push rdi\n");
         } else if (param_index == 1) {
@@ -1626,7 +1644,7 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
     struct AstNode* args = ast->expr1;
     struct AstNode* arg = args->next;
     int n_args = 0;
-    for (; arg; ) {
+    while (arg) {
         n_args = n_args + 1;
         gen_expr(g, arg, GEN_RVAL);
         arg = arg->next;
@@ -1798,7 +1816,7 @@ void gen_var_decl(struct CodeGen* g, struct AstNode* ast) {
 void gen_block_stmt(struct CodeGen* g, struct AstNode* ast) {
     assert_ast_kind(ast, AST_BLOCK);
     struct AstNode* stmt = ast->next;
-    for (; stmt; ) {
+    while (stmt) {
         gen_stmt(g, stmt);
         stmt = stmt->next;
     }
@@ -1852,7 +1870,7 @@ void gen(struct CodeGen* g, struct AstNode* ast) {
     printf(".globl main\n\n");
 
     struct AstNode* func = ast->next;
-    for (; func; ) {
+    while (func) {
         if (func->kind == AST_FUNC_DEF) {
             gen_func(g, func);
         }

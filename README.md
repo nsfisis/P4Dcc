@@ -43,7 +43,8 @@ To meet the four-day goal, many design decisions were made to reduce complexity 
 * Most syntax sugar is not implemented
     * No increment/decrement operators
     * No compound assignment operators
-    * No `while`
+    * ~~No `while`~~
+        * Implemented after self-hosting
 * Limited preprocessor
     * Supports only simple `#define` that replaces identifiers with integer literals
 * No global variables
