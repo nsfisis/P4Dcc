@@ -410,7 +410,7 @@ int type_alignof(struct Type* ty) {
 #define AST_FUNC_DECL     9
 #define AST_FUNC_DEF      10
 #define AST_IF_STMT       11
-#define AST_INT_LIT_EXPR  12
+#define AST_INT_EXPR      12
 #define AST_LIST          13
 #define AST_LOGICAL_EXPR  14
 #define AST_LVAR          15
@@ -420,7 +420,7 @@ int type_alignof(struct Type* ty) {
 #define AST_STRUCT_DECL   19
 #define AST_STRUCT_DEF    20
 #define AST_STRUCT_MEMBER 21
-#define AST_STR_LIT_EXPR  22
+#define AST_STR_EXPR      22
 #define AST_TYPE          23
 #define AST_UNARY_EXPR    24
 #define AST_VAR_DECL      25
@@ -441,7 +441,7 @@ int type_alignof(struct Type* ty) {
 #define node_params    __n1
 #define node_args      __n1
 #define node_int_value __i
-#define node_index     __i
+#define node_idx       __i
 #define node_op        __i
 
 struct AstNode {
@@ -484,8 +484,8 @@ void ast_append(struct AstNode* list, struct AstNode* item) {
     ++list->node_len;
 }
 
-struct AstNode* ast_new_int_lit(int v) {
-    struct AstNode* e = ast_new(AST_INT_LIT_EXPR);
+struct AstNode* ast_new_int(int v) {
+    struct AstNode* e = ast_new(AST_INT_EXPR);
     e->node_int_value = v;
     e->ty = type_new(TY_INT);
     return e;
@@ -535,16 +535,16 @@ struct AstNode* ast_new_assign_expr(int op, struct AstNode* lhs, struct AstNode*
 
 struct AstNode* ast_new_assign_add_expr(struct AstNode* lhs, struct AstNode* rhs) {
     if (lhs->ty->kind == TY_PTR) {
-        rhs = ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to)));
+        rhs = ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to)));
     } else if (rhs->ty->kind == TY_PTR) {
-        lhs = ast_new_binary_expr(TK_STAR, lhs, ast_new_int_lit(type_sizeof(rhs->ty->to)));
+        lhs = ast_new_binary_expr(TK_STAR, lhs, ast_new_int(type_sizeof(rhs->ty->to)));
     }
     return ast_new_assign_expr(TK_ASSIGN_ADD, lhs, rhs);
 }
 
 struct AstNode* ast_new_assign_sub_expr(struct AstNode* lhs, struct AstNode* rhs) {
     if (lhs->ty->kind == TY_PTR) {
-        rhs = ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to)));
+        rhs = ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to)));
     }
     return ast_new_assign_expr(TK_ASSIGN_SUB, lhs, rhs);
 }
@@ -565,7 +565,7 @@ struct AstNode* ast_new_deref_expr(struct AstNode* operand) {
 
 struct AstNode* ast_new_member_access_expr(struct AstNode* obj, char* name) {
     struct AstNode* e = ast_new(AST_DEREF_EXPR);
-    e->node_operand = ast_new_binary_expr(TK_PLUS, obj, ast_new_int_lit(type_offsetof(obj->ty->to, name)));
+    e->node_operand = ast_new_binary_expr(TK_PLUS, obj, ast_new_int(type_offsetof(obj->ty->to, name)));
     e->ty = type_member_typeof(obj->ty->to, name);
     return e;
 }
@@ -669,8 +669,8 @@ struct Func {
 struct Parser {
     struct Token* tokens;
     int pos;
-    struct LVar* locals;
-    int n_locals;
+    struct LVar* lvars;
+    int n_lvars;
     struct Func* funcs;
     int n_funcs;
     struct AstNode* structs;
@@ -714,8 +714,8 @@ struct Token* expect(struct Parser* p, int expected) {
 
 int find_lvar(struct Parser* p, char* name) {
     int i;
-    for (i = 0; i < p->n_locals; ++i) {
-        if (strcmp(p->locals[i].name, name) == 0) {
+    for (i = 0; i < p->n_lvars; ++i) {
+        if (strcmp(p->lvars[i].name, name) == 0) {
             return i;
         }
     }
@@ -732,6 +732,16 @@ int find_func(struct Parser* p, char* name) {
     return -1;
 }
 
+int find_struct(struct Parser* p, char* name) {
+    int i;
+    for (i = 0; i < p->n_structs; ++i) {
+        if (strcmp(p->structs[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 struct AstNode* parse_expr(struct Parser* p);
 struct AstNode* parse_stmt(struct Parser* p);
 
@@ -739,7 +749,7 @@ char* parse_ident(struct Parser* p) {
     return expect(p, TK_IDENT)->value;
 }
 
-int register_str_lit(struct Parser* p, char* s) {
+int register_str_literal(struct Parser* p, char* s) {
     p->str_literals[p->n_str_literals] = s;
     ++p->n_str_literals;
     return p->n_str_literals;
@@ -750,11 +760,10 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
     struct AstNode* e;
     char* buf;
     if (t->kind == TK_L_INT) {
-        return ast_new_int_lit(atoi(t->value));
+        return ast_new_int(atoi(t->value));
     } else if (t->kind == TK_L_STR) {
-        int str_lit_index = register_str_lit(p, t->value);
-        e = ast_new(AST_STR_LIT_EXPR);
-        e->node_index = str_lit_index;
+        e = ast_new(AST_STR_EXPR);
+        e->node_idx = register_str_literal(p, t->value);
         return e;
     } else if (t->kind == TK_PAREN_L) {
         e = parse_expr(p);
@@ -765,19 +774,19 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
 
         if (peek_token(p)->kind == TK_PAREN_L) {
             e = ast_new(AST_FUNC_CALL);
-            int func_index = find_func(p, name);
-            if (func_index == -1) {
+            int func_idx = find_func(p, name);
+            if (func_idx == -1) {
                 buf = calloc(1024, sizeof(char));
                 sprintf(buf, "undefined function: %s", name);
                 fatal_error(buf);
             }
             e->name = name;
-            e->ty = p->funcs[func_index].ty;
+            e->ty = p->funcs[func_idx].ty;
             return e;
         }
 
-        int var_index = find_lvar(p, name);
-        if (var_index == -1) {
+        int var_idx = find_lvar(p, name);
+        if (var_idx == -1) {
             buf = calloc(1024, sizeof(char));
             sprintf(buf, "undefined variable: %s", name);
             fatal_error(buf);
@@ -785,8 +794,8 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
 
         e = ast_new(AST_LVAR);
         e->name = name;
-        e->node_index = var_index;
-        e->ty = p->locals[var_index].ty;
+        e->node_idx = var_idx;
+        e->ty = p->lvars[var_idx].ty;
         return e;
     } else {
         buf = calloc(1024, sizeof(char));
@@ -827,7 +836,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
             next_token(p);
             struct AstNode* idx = parse_expr(p);
             expect(p, TK_BRACKET_R);
-            idx = ast_new_binary_expr(TK_STAR, idx, ast_new_int_lit(type_sizeof(ret->ty->to)));
+            idx = ast_new_binary_expr(TK_STAR, idx, ast_new_int(type_sizeof(ret->ty->to)));
             ret = ast_new_deref_expr(ast_new_binary_expr(TK_PLUS, ret, idx));
         } else if (tk == TK_DOT) {
             next_token(p);
@@ -868,18 +877,13 @@ struct Type* parse_type(struct Parser* p) {
     } else if (t->kind == TK_K_STRUCT) {
         ty->kind = TY_STRUCT;
         char* name = parse_ident(p);
-        int struct_index;
-        for (struct_index = 0; struct_index < p->n_structs; ++struct_index) {
-            if (strcmp(name, p->structs[struct_index].name) == 0) {
-                break;
-            }
-        }
-        if (struct_index == p->n_structs) {
+        int struct_idx = find_struct(p, name);
+        if (struct_idx == -1) {
             buf = calloc(1024, sizeof(char));
             sprintf(buf, "parse_type: unknown struct, %s", name);
             fatal_error(buf);
         }
-        ty->struct_def = p->structs + struct_index;
+        ty->struct_def = p->structs + struct_idx;
     } else {
         unreachable();
     }
@@ -900,7 +904,7 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
     if (op == TK_MINUS) {
         next_token(p);
         operand = parse_prefix_expr(p);
-        return ast_new_binary_expr(op, ast_new_int_lit(0), operand);
+        return ast_new_binary_expr(op, ast_new_int(0), operand);
     } else if (op == TK_NOT) {
         next_token(p);
         operand = parse_prefix_expr(p);
@@ -916,17 +920,17 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
     } else if (op == TK_PLUSPLUS) {
         next_token(p);
         operand = parse_prefix_expr(p);
-        return ast_new_assign_add_expr(operand, ast_new_int_lit(1));
+        return ast_new_assign_add_expr(operand, ast_new_int(1));
     } else if (op == TK_MINUSMINUS) {
         next_token(p);
         operand = parse_prefix_expr(p);
-        return ast_new_assign_sub_expr(operand, ast_new_int_lit(1));
+        return ast_new_assign_sub_expr(operand, ast_new_int(1));
     } else if (op == TK_K_SIZEOF) {
         next_token(p);
         expect(p, TK_PAREN_L);
         struct Type* ty = parse_type(p);
         expect(p, TK_PAREN_R);
-        return ast_new_int_lit(type_sizeof(ty));
+        return ast_new_int(type_sizeof(ty));
     }
     return parse_postfix_expr(p);
 }
@@ -955,9 +959,9 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to))));
+                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
             } else if (rhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(op, ast_new_binary_expr(TK_STAR, lhs, ast_new_int_lit(type_sizeof(rhs->ty->to))), rhs);
+                lhs = ast_new_binary_expr(op, ast_new_binary_expr(TK_STAR, lhs, ast_new_int(type_sizeof(rhs->ty->to))), rhs);
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
             }
@@ -965,7 +969,7 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to))));
+                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
             }
@@ -1130,7 +1134,7 @@ struct AstNode* parse_for_stmt(struct Parser* p) {
     if (peek_token(p)->kind != TK_SEMICOLON) {
         cond = parse_expr(p);
     } else {
-        cond = ast_new_int_lit(1);
+        cond = ast_new_int(1);
     }
     expect(p, TK_SEMICOLON);
     if (peek_token(p)->kind != TK_PAREN_R) {
@@ -1191,15 +1195,15 @@ struct AstNode* parse_var_decl(struct Parser* p) {
         sprintf(buf, "parse_var_decl: %s redeclared", name);
         fatal_error(buf);
     }
-    p->locals[p->n_locals].name = name;
-    p->locals[p->n_locals].ty = ty;
-    ++p->n_locals;
+    p->lvars[p->n_lvars].name = name;
+    p->lvars[p->n_lvars].ty = ty;
+    ++p->n_lvars;
 
     struct AstNode* ret;
     if (init) {
         struct AstNode* lhs = ast_new(AST_LVAR);
         lhs->name = name;
-        lhs->node_index = p->n_locals - 1;
+        lhs->node_idx = p->n_lvars - 1;
         lhs->ty = ty;
         struct AstNode* assign = ast_new_assign_expr(TK_ASSIGN, lhs, init);
         ret = ast_new(AST_EXPR_STMT);
@@ -1253,17 +1257,17 @@ struct AstNode* parse_stmt(struct Parser* p) {
 }
 
 void enter_func(struct Parser* p) {
-    p->locals = calloc(LVAR_MAX, sizeof(struct LVar));
-    p->n_locals = 0;
+    p->lvars = calloc(LVAR_MAX, sizeof(struct LVar));
+    p->n_lvars = 0;
 }
 
 void register_params(struct Parser* p, struct AstNode* params) {
     int i;
     for (i = 0; i < params->node_len; ++i) {
         struct AstNode* param = params->node_items + i;
-        p->locals[p->n_locals].name = param->name;
-        p->locals[p->n_locals].ty = param->ty;
-        ++p->n_locals;
+        p->lvars[p->n_lvars].name = param->name;
+        p->lvars[p->n_lvars].ty = param->ty;
+        ++p->n_lvars;
     }
 }
 
@@ -1352,22 +1356,18 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
         return parse_func_decl_or_def(p);
     }
 
-    int struct_index;
-    for (struct_index = 0; struct_index < p->n_structs; ++struct_index) {
-        if (strcmp(name, p->structs[struct_index].name) == 0) {
-            break;
-        }
-    }
-    if (struct_index == p->n_structs) {
-        p->structs[struct_index].kind = AST_STRUCT_DEF;
-        p->structs[struct_index].name = name;
+    int struct_idx = find_struct(p, name);
+    if (struct_idx == -1) {
+        struct_idx = p->n_structs;
+        p->structs[struct_idx].kind = AST_STRUCT_DEF;
+        p->structs[struct_idx].name = name;
         ++p->n_structs;
     }
     if (peek_token(p)->kind == TK_SEMICOLON) {
         next_token(p);
         return ast_new(AST_STRUCT_DECL);
     }
-    if (p->structs[struct_index].node_members) {
+    if (p->structs[struct_idx].node_members) {
         char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_struct_decl_or_def: struct %s redefined", name);
         fatal_error(buf);
@@ -1376,8 +1376,8 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     struct AstNode* members = parse_struct_members(p);
     expect(p, TK_BRACE_R);
     expect(p, TK_SEMICOLON);
-    p->structs[struct_index].node_members = members;
-    return p->structs + struct_index;
+    p->structs[struct_idx].node_members = members;
+    return p->structs + struct_idx;
 }
 
 struct AstNode* parse_toplevel(struct Parser* p) {
@@ -1461,12 +1461,12 @@ void gen_func_epilogue(struct CodeGen* g, struct AstNode* ast) {
     printf("  ret\n");
 }
 
-void gen_int_lit_expr(struct CodeGen* g, struct AstNode* ast) {
+void gen_int_expr(struct CodeGen* g, struct AstNode* ast) {
     printf("  push %d\n", ast->node_int_value);
 }
 
-void gen_str_lit_expr(struct CodeGen* g, struct AstNode* ast) {
-    printf("  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->node_index);
+void gen_str_expr(struct CodeGen* g, struct AstNode* ast) {
+    printf("  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->node_idx);
     printf("  push rax\n");
 }
 
@@ -1644,7 +1644,7 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
-    int offset = 8 + ast->node_index * 8;
+    int offset = 8 + ast->node_idx * 8;
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", offset);
     printf("  push rax\n");
@@ -1654,10 +1654,10 @@ void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
 }
 
 void gen_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
-    if (ast->kind == AST_INT_LIT_EXPR) {
-        gen_int_lit_expr(g, ast);
-    } else if (ast->kind == AST_STR_LIT_EXPR) {
-        gen_str_lit_expr(g, ast);
+    if (ast->kind == AST_INT_EXPR) {
+        gen_int_expr(g, ast);
+    } else if (ast->kind == AST_STR_EXPR) {
+        gen_str_expr(g, ast);
     } else if (ast->kind == AST_UNARY_EXPR) {
         gen_unary_expr(g, ast);
     } else if (ast->kind == AST_REF_EXPR) {
