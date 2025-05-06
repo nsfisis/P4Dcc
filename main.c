@@ -1019,12 +1019,33 @@ struct AstNode* parse_logical_or_expr(struct Parser* p) {
 
 struct AstNode* parse_assignment_expr(struct Parser *p) {
     struct AstNode* lhs = parse_logical_or_expr(p);
+    struct AstNode* rhs;
     while (1) {
         int op = peek_token(p)->kind;
-        if (op == TK_ASSIGN || op == TK_ASSIGN_ADD || op == TK_ASSIGN_SUB) {
+        if (op == TK_ASSIGN) {
             next_token(p);
-            struct AstNode* rhs = parse_logical_or_expr(p);
+            rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
+            lhs->ty = rhs->ty;
+        } else if (op == TK_ASSIGN_ADD) {
+            next_token(p);
+            rhs = parse_logical_or_expr(p);
+            if (lhs->ty->kind == TY_PTR) {
+                lhs = ast_new_assign_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to))));
+            } else if (rhs->ty->kind == TY_PTR) {
+                lhs = ast_new_assign_expr(op, ast_new_binary_expr(TK_STAR, lhs, ast_new_int_lit(type_sizeof(rhs->ty->to))), rhs);
+            } else {
+                lhs = ast_new_assign_expr(op, lhs, rhs);
+            }
+            lhs->ty = rhs->ty;
+        } else if (op == TK_ASSIGN_SUB) {
+            next_token(p);
+            rhs = parse_logical_or_expr(p);
+            if (lhs->ty->kind == TY_PTR) {
+                lhs = ast_new_assign_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int_lit(type_sizeof(lhs->ty->to))));
+            } else {
+                lhs = ast_new_assign_expr(op, lhs, rhs);
+            }
             lhs->ty = rhs->ty;
         } else {
             break;
@@ -1568,74 +1589,33 @@ void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
     gen_expr(g, ast->node_lhs, GEN_LVAL);
     gen_expr(g, ast->node_rhs, GEN_RVAL);
     if (ast->node_op == TK_ASSIGN) {
-        printf("  pop rdi\n");
-        printf("  pop rax\n");
-        if (type_sizeof(ast->node_lhs->ty) == 1) {
-            printf("  mov BYTE PTR [rax], dil\n");
-        } else if (type_sizeof(ast->node_lhs->ty) == 4) {
-            printf("  mov DWORD PTR [rax], edi\n");
-        } else {
-            printf("  mov [rax], rdi\n");
-        }
-        printf("  push rdi\n");
     } else if (ast->node_op == TK_ASSIGN_ADD) {
         printf("  pop rdi\n");
-        printf("  pop rax\n");
-        printf("  push rax\n");
-        printf("  push rdi\n");
-        printf("  push rax\n");
+        printf("  push [rsp]\n");
         gen_lval2rval(ast->node_lhs->ty);
         printf("  pop rax\n");
-        printf("  pop rdi\n");
-        if (ast->node_lhs->ty->kind == TY_PTR) {
-            printf("  imul rdi, %d\n", type_sizeof(ast->node_lhs->ty->to));
-            printf("  add rax, rdi\n");
-        } else if (ast->node_rhs->ty->kind == TY_PTR) {
-            printf("  imul rax, %d\n", type_sizeof(ast->node_rhs->ty->to));
-            printf("  add rax, rdi\n");
-        } else {
-            printf("  add rax, rdi\n");
-        }
+        printf("  add rax, rdi\n");
         printf("  push rax\n");
-        printf("  pop rdi\n");
-        printf("  pop rax\n");
-        if (type_sizeof(ast->node_lhs->ty) == 1) {
-            printf("  mov BYTE PTR [rax], dil\n");
-        } else if (type_sizeof(ast->node_lhs->ty) == 4) {
-            printf("  mov DWORD PTR [rax], edi\n");
-        } else {
-            printf("  mov [rax], rdi\n");
-        }
-        printf("  push rdi\n");
     } else if (ast->node_op == TK_ASSIGN_SUB) {
         printf("  pop rdi\n");
-        printf("  pop rax\n");
-        printf("  push rax\n");
-        printf("  push rdi\n");
-        printf("  push rax\n");
+        printf("  push [rsp]\n");
         gen_lval2rval(ast->node_lhs->ty);
         printf("  pop rax\n");
-        printf("  pop rdi\n");
-        if (ast->node_lhs->ty->kind == TY_PTR) {
-            printf("  imul rdi, %d\n", type_sizeof(ast->node_lhs->ty->to));
-            printf("  sub rax, rdi\n");
-        } else {
-            printf("  sub rax, rdi\n");
-        }
+        printf("  sub rax, rdi\n");
         printf("  push rax\n");
-        printf("  pop rdi\n");
-        printf("  pop rax\n");
-        if (type_sizeof(ast->node_lhs->ty) == 1) {
-            printf("  mov BYTE PTR [rax], dil\n");
-        } else if (type_sizeof(ast->node_lhs->ty) == 4) {
-            printf("  mov DWORD PTR [rax], edi\n");
-        } else {
-            printf("  mov [rax], rdi\n");
-        }
-        printf("  push rdi\n");
     } else {
         fatal_error("gen_assign_expr: unknown assign op");
     }
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
+    if (type_sizeof(ast->node_lhs->ty) == 1) {
+        printf("  mov BYTE PTR [rax], dil\n");
+    } else if (type_sizeof(ast->node_lhs->ty) == 4) {
+        printf("  mov DWORD PTR [rax], edi\n");
+    } else {
+        printf("  mov [rax], rdi\n");
+    }
+    printf("  push rdi\n");
 }
 
 void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
