@@ -302,7 +302,7 @@ struct Token* tokenize(char* src) {
             continue;
         } else {
             char* buf = calloc(1024, sizeof(char));
-            sprintf(buf, "!!! %d", c);
+            sprintf(buf, "unknown token char(%d)", c);
             fatal_error(buf);
         }
         tok += 1;
@@ -1391,14 +1391,6 @@ struct CodeGen* codegen_new() {
     return g;
 }
 
-void assert_ast_kind(struct AstNode* ast, int kind) {
-    if (ast->kind != kind) {
-        char* buf = calloc(1024, sizeof(char));
-        sprintf(buf, "invalid ast kind: expected %d, but got %d", kind, ast->kind);
-        fatal_error(buf);
-    }
-}
-
 int gen_new_label(struct CodeGen* g) {
     int new_label = g->next_label;
     g->next_label += 1;
@@ -1409,8 +1401,6 @@ void gen_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode);
 void gen_stmt(struct CodeGen* g, struct AstNode* ast);
 
 void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
-    printf("  # gen_func_prologue\n");
-
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
     int param_index = 0;
@@ -1436,32 +1426,21 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_func_epilogue(struct CodeGen* g, struct AstNode* ast) {
-    printf("  # gen_func_epilogue\n");
-
     printf("  mov rsp, rbp\n");
     printf("  pop rbp\n");
     printf("  ret\n");
 }
 
 void gen_int_lit_expr(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_INT_LIT_EXPR);
-    printf("  # gen_int_lit_expr\n");
-
     printf("  push %d\n", ast->node_int_value);
 }
 
 void gen_str_lit_expr(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_STR_LIT_EXPR);
-    printf("  # gen_str_lit_expr\n");
-
     printf("  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->node_index);
     printf("  push rax\n");
 }
 
 void gen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_UNARY_EXPR);
-    printf("  # gen_unary_expr\n");
-
     gen_expr(g, ast->node_operand, GEN_RVAL);
     if (ast->node_op == TK_NOT) {
         printf("  pop rax\n");
@@ -1476,9 +1455,6 @@ void gen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_ref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
-    assert_ast_kind(ast, AST_REF_EXPR);
-    printf("  # gen_ref_expr\n");
-
     gen_expr(g, ast->node_operand, GEN_LVAL);
 }
 
@@ -1497,9 +1473,6 @@ void gen_lval2rval(struct Type* ty) {
 }
 
 void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
-    assert_ast_kind(ast, AST_DEREF_EXPR);
-    printf("  # gen_deref_expr\n");
-
     if (gen_mode == GEN_LVAL) {
         gen_expr(g, ast->node_operand, GEN_RVAL);
     } else {
@@ -1509,9 +1482,6 @@ void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
 }
 
 void gen_logical_expr(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_LOGICAL_EXPR);
-    printf("  # gen_logical_expr\n");
-
     int label = gen_new_label(g);
 
     if (ast->node_op == TK_ANDAND) {
@@ -1538,9 +1508,6 @@ void gen_logical_expr(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
-    assert_ast_kind(ast, AST_BINARY_EXPR);
-    printf("  # gen_binary_expr\n");
-
     gen_expr(g, ast->node_lhs, gen_mode);
     gen_expr(g, ast->node_rhs, gen_mode);
     printf("  pop rdi\n");
@@ -1583,9 +1550,6 @@ void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
 }
 
 void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_ASSIGN_EXPR);
-    printf("  # gen_assign_expr\n");
-
     gen_expr(g, ast->node_lhs, GEN_LVAL);
     gen_expr(g, ast->node_rhs, GEN_RVAL);
     if (ast->node_op == TK_ASSIGN) {
@@ -1619,9 +1583,6 @@ void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_FUNC_CALL);
-    printf("  # gen_func_call\n");
-
     int i;
     char* func_name = ast->name;
     struct AstNode* args = ast->node_args;
@@ -1671,9 +1632,6 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
-    assert_ast_kind(ast, AST_LVAR);
-    printf("  # gen_lvar\n");
-
     int offset = 8 + ast->node_index * 8;
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", offset);
@@ -1710,9 +1668,6 @@ void gen_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
 }
 
 void gen_return_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_RETURN_STMT);
-    printf("  # gen_return_stmt\n");
-
     if (ast->node_expr) {
         gen_expr(g, ast->node_expr, GEN_RVAL);
         printf("  pop rax\n");
@@ -1721,9 +1676,6 @@ void gen_return_stmt(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_if_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_IF_STMT);
-    printf("  # gen_if_stmt\n");
-
     int label = gen_new_label(g);
 
     gen_expr(g, ast->node_cond, GEN_RVAL);
@@ -1740,9 +1692,6 @@ void gen_if_stmt(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_FOR_STMT);
-    printf("  # gen_for_stmt\n");
-
     int label = gen_new_label(g);
     g->loop_labels += 1;
     *g->loop_labels = label;
@@ -1769,17 +1718,11 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_break_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_BREAK_STMT);
-    printf("  # gen_break_stmt\n");
-
     int label = *g->loop_labels;
     printf("  jmp .Lend%d\n", label);
 }
 
 void gen_continue_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_CONTINUE_STMT);
-    printf("  # gen_continue_stmt\n");
-
     int label = *g->loop_labels;
     printf("  jmp .Lcontinue%d\n", label);
 }
@@ -1793,8 +1736,6 @@ void gen_var_decl(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_block_stmt(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_LIST);
-
     int i;
     for (i = 0; i < ast->node_len; i += 1) {
         struct AstNode* stmt = ast->node_items + i;
@@ -1827,7 +1768,6 @@ void gen_stmt(struct CodeGen* g, struct AstNode* ast) {
 }
 
 void gen_func(struct CodeGen* g, struct AstNode* ast) {
-    assert_ast_kind(ast, AST_FUNC_DEF);
     printf("%s:\n", ast->name);
 
     gen_func_prologue(g, ast);
@@ -1847,7 +1787,6 @@ void gen(struct CodeGen* g, struct Program* prog) {
 
     printf(".globl main\n\n");
 
-    assert_ast_kind(prog->funcs, AST_LIST);
     int i;
     for (i = 0; i < prog->funcs->node_len; i += 1) {
         struct AstNode* func = prog->funcs->node_items + i;
