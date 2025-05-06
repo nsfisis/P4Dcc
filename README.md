@@ -41,7 +41,8 @@ To meet the four-day goal, many design decisions were made to reduce complexity 
     * No support for function types
     * Type information always precede the variable name
 * Minimal syntax sugar
-    * No increment/decrement operators
+    * ~~No increment/decrement operators~~
+        * Partially implemented after self-hosting
     * ~~No compound assignment operators~~
         * Implemented after self-hosting
     * ~~No `while`~~
